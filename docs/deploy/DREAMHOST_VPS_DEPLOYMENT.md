@@ -396,6 +396,8 @@ Only once a real SAP gateway exists. It runs as its own service with `lms_worker
 
 ## 11. DreamHost managed VPS (no sudo): pm2 + PostgreSQL in your home folder
 
+**Chosen path for this project: see [GO_LIVE_PLAN.md](GO_LIVE_PLAN.md)** (GitHub + exact copy of the local database).
+
 Use this path if `sudo` does not work and you run apps with **pm2**. Nothing needs root:
 - PostgreSQL is installed into your home folder with micromamba (conda-forge packages), which you download with `curl`.
 - Node comes from `nvm`.
@@ -415,13 +417,13 @@ npm install -g pm2
 node -v && pm2 -v
 ```
 
-### 11.2 PostgreSQL 16, without root
+### 11.2 PostgreSQL 18, without root (the same major version as the development PC)
 ```bash
 cd ~
 curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
-./bin/micromamba create -y -p ~/pg16 -c conda-forge postgresql=16
-echo 'export PATH="$HOME/pg16/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
-psql --version        # psql (PostgreSQL) 16.x
+./bin/micromamba create -y -p ~/pg18 -c conda-forge postgresql=18
+echo 'export PATH="$HOME/pg18/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+psql --version        # psql (PostgreSQL) 18.x
 ```
 
 Create the database cluster. Its superuser is called `postgres` and gets its own password:
@@ -443,7 +445,7 @@ CONF
 
 Start it with pm2 so it survives restarts:
 ```bash
-pm2 start "$HOME/pg16/bin/postgres" --name lms-db -- -D "$HOME/pgdata"
+pm2 start "$HOME/pg18/bin/postgres" --name lms-db -- -D "$HOME/pgdata"
 pm2 logs lms-db --lines 20      # "database system is ready to accept connections"
 ```
 
@@ -546,7 +548,7 @@ mkdir -p ~/backups/lms
 crontab -e
 ```
 ```cron
-30 2 * * * PGPASSWORD="$(cat $HOME/.pg_super_pw)" $HOME/pg16/bin/pg_dump -h 127.0.0.1 -p 5433 -U postgres -Fc -Z6 -d lms_prod -f $HOME/backups/lms/lms_prod-$(date +\%F).dump && find $HOME/backups/lms -name '*.dump' -mtime +14 -delete
+30 2 * * * PGPASSWORD="$(cat $HOME/.pg_super_pw)" $HOME/pg18/bin/pg_dump -h 127.0.0.1 -p 5433 -U postgres -Fc -Z6 -d lms_prod -f $HOME/backups/lms/lms_prod-$(date +\%F).dump && find $HOME/backups/lms -name '*.dump' -mtime +14 -delete
 ```
 Copy `~/backups/lms`, `~/lms-documents` and `~/apps/lms/.env.production.local` **off the VPS** regularly, for example with DreamObjects or by downloading them with `scp`.
 
