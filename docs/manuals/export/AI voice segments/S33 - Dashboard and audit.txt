@@ -1,0 +1,1 @@
+The executive dashboard summarises approved and paid compensation, by province. <break time="2s" /> And the audit trail shows every change, every approval and every comment: who, what and when. It cannot be edited.

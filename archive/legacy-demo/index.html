@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<title>Sign in · LMS</title>
+<script src="assets/js/theme-init.js"></script>
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/utilities.css">
+<link rel="stylesheet" href="assets/css/responsive.css">
+<link rel="stylesheet" href="assets/css/print.css">
+<link rel="stylesheet" href="assets/css/features.css">
+</head>
+<body data-page="login" data-root="">
+<main class="screen" id="login">
+  <div class="login-card">
+    <div class="brand-mark">LMS</div>
+    <h1>Land Management System</h1>
+    <p class="sub">E&amp;P land lifecycle &mdash; acquisition, leases, ROW, compensation, GIS
+      &middot; <span id="lgCo"></span></p>
+    <form id="loginForm" novalidate>
+      <label for="lgU">Username</label>
+      <input id="lgU" name="username" autocomplete="username" value="admin" required>
+      <label for="lgP">Password</label>
+      <input id="lgP" name="password" type="password" autocomplete="current-password"
+             value="admin123" required>
+      <p class="err-msg hidden" id="lgErr" role="alert"></p>
+      <button class="btn btn-p" type="submit">Sign in</button>
+    </form>
+    <div class="demo-accts">
+      <b>Demo accounts</b> &mdash; click a row to fill (role-based rights are enforced)
+      <table><caption class="sr-only">Demo accounts and their roles</caption>
+        <tbody id="lgUsers"></tbody></table>
+    </div>
+  </div>
+</main>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script src="assets/js/core/engine.js"></script>
+<script src="assets/js/core/calc.js"></script>
+<script src="assets/js/core/spec.js"></script>
+<script src="assets/js/ui/screens.js"></script>
+<script src="assets/js/ui/print.js"></script>
+<script src="assets/js/ui/extras.js"></script>
+<script src="assets/js/ui/gis.js"></script>
+<script src="assets/js/ui/reports.js"></script>
+<script src="assets/js/ui/import.js"></script>
+<script src="assets/js/data/demo.js"></script>
+<script src="assets/js/app/session.js"></script>
+<script src="assets/js/app/scope.js"></script>
+<script src="assets/js/app/lazy.js"></script>
+<script src="assets/js/app/print-doc.js"></script>
+<script src="assets/js/app/actions.js"></script>
+<script src="assets/js/app/a11y.js"></script>
+<script src="assets/js/app/forms.js"></script>
+<script src="assets/js/app/gis-map.js"></script>
+<script src="assets/js/app/shell.js"></script>
+<script src="assets/js/app/role-ui.js"></script>
+<script src="assets/js/app/features.js"></script>
+<script src="assets/js/app/registry.js"></script>
+<script src="assets/js/app/boot.js"></script>
+</body>
+</html>

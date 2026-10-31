@@ -1,0 +1,113 @@
+[S01 · Opening]
+This is the Land Management System built for Mari Energies. <break time="1s" /> It runs the company's land work in Sindh, Balochistan, Punjab and Khyber Pakhtunkhwa, from the moment exploration needs a piece of land, through approvals, owners and compensation, to the cheque in the landowner's hand. <break time="1s" /> Every person signs in with their own role. The role decides what they see, which approval step they may take, and in which provinces. <break time="1s" /> Today we follow one case from start to finish: a new exploratory well, Daharki Well-03, near the village of Jarwar in District Ghotki.
+
+[S02 · Projects: why and where]
+Our Land Officer, Sanaullah, works only in Sindh, and the system shows him only Sindh records. <break time="1s" /> Every piece of land starts with a reason: a project. <break time="1s" /> He opens Projects and Well Locations, and clicks Add Project.
+
+[S03 · Create the project]
+Project code: D-H-R-K, three-zero-one. <break time="2s" /> Province: Sindh. <break time="1s" /> The name: Daharki Well-03, Exploratory Location. <break time="2s" /> Type: Well Location. <break time="1s" /> Block: Daharki D and P L. <break time="2s" /> District: Ghotki. <break time="1s" /> We expect to need about twenty acres. <break time="1s" /> And a short description of the work: a well pad, a rig camp and an access road. <break time="2s" /> Save. <break time="2s" /> The project is now registered and active. From here on, every parcel, request, case and payment is filed under this code, so management can see the full land cost of each well.
+
+[S04 · Landowner 1]
+Next, the people. A landowner is identified by CNIC: one person, one record across the whole company, so we never pay a duplicate. <break time="1s" /> Province: Sindh. <break time="1s" /> The CNIC. Watch the dashes appear by themselves. <break time="2s" /> Full name: Ghulam Rasool Mahar. <break time="2s" /> Father's name: Muhammad Bux Mahar. <break time="2s" /> He is the owner. <break time="1s" /> Tax status: Filer. This matters later: the system will deduct withholding tax by itself, based on this. <break time="1s" /> Phone, bank branch, and his IBAN, which the system checks for the correct format. <break time="2s" /> The address, and save.
+
+[S05 · Landowner 2]
+His brother, Nazir Ahmed Mahar, owns land with him. <break time="1s" /> Same province, his own CNIC. <break time="2s" /> His name. <break time="1s" /> The same father. <break time="1s" /> But Nazir is a non-filer, so his tax will be double. <break time="1s" /> His bank details. <break time="2s" /> And save. Both owners are now registered.
+
+[S06 · Khasra 451/2]
+Now the parcels. A khasra is recorded exactly as the revenue record writes it. <break time="1s" /> Province: Sindh. <break time="1s" /> Revenue location: District Ghotki, Taluka Daharki, Deh Jarwar. <break time="2s" /> It belongs to our project, D-H-R-K three-zero-one. <break time="1s" /> Khasra number: four-fifty-one, slash two. Block nine. <break time="2s" /> Rural, private land. <break time="1s" /> Twelve acres. <break time="1s" /> And its GPS position, latitude and longitude, which puts it on the map. <break time="2s" /> Save. The new khasra starts as Proposed.
+
+[S07 · Khasra 452/1 (Kanal)]
+The second khasra, four-fifty-two, slash one, in the same deh. <break time="2s" /> This one is recorded in Kanal: sixty-four Kanal. <break time="2s" /> Its position. <break time="2s" /> Save. <break time="1s" /> The system converts it to eight acres, and keeps the original unit, Kanal, for the record.
+
+[S08 · Owner shares]
+Finally, who owns what. <break time="1s" /> On khasra four-fifty-one, open Shares, and add both brothers. <break time="2s" /> Sixty percent and thirty percent. <break time="1s" /> Notice that Save stays disabled. The system only accepts shares that add up to exactly one hundred percent. <break time="1s" /> Forty percent. Now it saves. <break time="2s" /> The second khasra is shared fifty-fifty. <break time="2s" /> Once registered, shares can only change through a formal mutation, such as inheritance, and never by simply overwriting them.
+
+[S09 · GIS map]
+Everything with coordinates appears on the map. <break time="1s" /> Each dot is a khasra, coloured by its land status: grey for proposed, amber under acquisition, green acquired, blue leased, and red disputed. <break time="1s" /> Here are our two new parcels near Jarwar. <break time="1s" /> Operations, the land team and management all look at the same picture.
+
+[S10 · The Explorer role]
+Now the most important new capability. <break time="1s" /> This is the Exploration Planner. He lands straight on the map. He can see projects, parcels and land status, but no owner names, CNICs or payments. That's least privilege, by design. <break time="1s" /> He clicks Draw land request.
+
+[S11 · Paste the corners]
+He can click corners on the map, drag them, or remove them. <break time="2s" /> But most field teams carry GPS coordinates, so he pastes them. <break time="1s" /> Paste lat-long, <break time="1s" /> the four corners, <break time="1s" /> and use these corners. <break time="2s" /> The shape appears on the map instantly.
+
+[S12 · Read the panel]
+The system measures it straight away: twenty point one nine acres, about eight hectares, with its centre point. <break time="1s" /> And it finds the recorded khasras inside: our two Mahar parcels. <break time="1s" /> If this shape touched disputed land, land we already lease, government land, or another open request, a warning would appear right here, before anything is submitted.
+
+[S13 · Request details and submit]
+Continue to the request details. <break time="1s" /> The project: D-H-R-K three-zero-one. <break time="1s" /> Purpose: well location. <break time="1s" /> Priority: urgent. <break time="1s" /> Needed by the fifteenth of January. <break time="2s" /> The deh, Jarwar, is filled in from the parcels inside. <break time="1s" /> And the justification: why this land, what will be built, and by when. <break time="2s" /> Submit to Director Operations. <break time="2s" /> Request four is created and sent. On the map it turns orange: under review. The server measured the shape again itself. It never trusts figures from the browser.
+
+[S14 · Director Ops opens it]
+The request now waits for the Director Operations, the first of three independent approvals. <break time="1s" /> He opens the details. <break time="1s" /> He sees exactly what is asked: the drawn area, every corner's latitude and longitude, the parcels it covers, and any warnings. <break time="2s" /> And with one click, he sees it on the map. <break time="2s" /> His question is simple: is the operational need real?
+
+[S15 · Director Ops approves]
+He approves, with a comment that is recorded permanently: <break time="2s" /> operational need confirmed. <break time="1s" /> It moves to the Regional Manager.
+
+[S16 · Regional Manager returns it]
+The Regional Manager looks at it from the region's side, and asks for a change. <break time="1s" /> Instead of a phone call and a new paper form, she returns it, with a comment: <break time="2s" /> move the north boundary away from the link road. <break time="1s" /> It goes back to the planner.
+
+[S17 · Explorer redraws (v2)]
+The planner sees it was returned, and edits it on the map. <break time="2s" /> He clears the shape, and pastes the revised corners. <break time="2s" /> Now fifteen point eight three acres, still covering both parcels. <break time="1s" /> He says what changed, and sends it again. <break time="2s" /> The first version is never lost. Reviewers can compare both. And because the land changed, every approver decides again from the start.
+
+[S18 · Director Ops approves again]
+The Director Operations confirms the revised boundary. <break time="2s" />
+
+[S19 · Regional Manager approves]
+And the Regional Manager agrees. <break time="2s" />
+
+[S20 · Land Affairs, final approval]
+Finally, the DM Land Affairs answers the last question: can this land actually be obtained? <break time="1s" /> Private land, two known owners, no litigation. Approved. <break time="2s" /> Three rules hold this together, enforced in the database itself: only the holder of each position decides that step, the person who asked can never approve, and no one decides two steps.
+
+[S21 · Hand-over]
+The approved request comes back to the land team. <break time="1s" /> The Land Officer takes it up, as an acquisition. <break time="1s" /> With one tick, the parcels inside the approved boundary are marked under acquisition, everywhere in the system. <break time="1s" /> A short comment, <break time="1s" /> and take it up. <break time="2s" /> Two parcels marked. The request is now handed over.
+
+[S22 · Create acquisition]
+Now, Create acquisition. <break time="2s" /> It opens already filled in: the project, the approved area, the target date, and the exact khasras. Nothing is retyped. <break time="1s" /> He chooses private lease, and the negotiated rate. <break time="2s" /> Save. The acquisition and the request are linked both ways.
+
+[S23 · Case header and owners]
+With the owners and parcels known, the Land Officer prepares the compensation case. <break time="1s" /> Project: D-H-R-K three-zero-one. <break time="1s" /> Land used for: well location. <break time="1s" /> A lease rate of sixty thousand rupees per acre, per year, <break time="1s" /> for thirty-six months. <break time="2s" /> The owners: Ghulam Rasool with sixty percent, <break time="2s" /> and Nazir Ahmed with forty. <break time="2s" /> Again, the shares must total exactly one hundred.
+
+[S24 · Case lines]
+Now what they're owed. <break time="1s" /> A lease line: khasra four-fifty-one, all of it, twelve acres. <break time="3s" /> Crop damage on the second khasra: <break time="1s" /> wheat, forty-five thousand rupees an acre, five acres damaged. <break time="3s" /> Six medium Kikar trees, at eight thousand each. <break time="3s" /> And a disturbance allowance of twenty-five thousand. <break time="3s" /> He enters rates and quantities only. The database calculates the award itself.
+
+[S25 · Documents and create]
+He confirms the documents he has seen: CNIC copies, the revenue record, the signed consent, bank details, photographs, and the joint survey. <break time="3s" /> Create case. <break time="2s" /> The award: two million, four hundred and fifty-eight thousand rupees. <break time="1s" /> And notice: the person who prepares a case can never approve it, so he has no approve button.
+
+[S26a · nego]
+Negotiation confirms the agreed rates. <break time="2s" />
+
+[S26b · legal]
+Legal reviews the title. <break time="2s" />
+
+[S26c · sradmin]
+The Senior Administrator verifies the field records. <break time="2s" />
+
+[S26d · dmfield]
+The DM approves it at field level. If a document were missing, this step would be refused. <break time="2s" />
+
+[S26e · mland]
+And the Manager Land approves it at head office. Five people, one step each. The award is now locked. <break time="2s" />
+
+[S27 · Payment voucher]
+Payment starts with a voucher against the approved case. <break time="1s" /> The project, <break time="1s" /> and the case, showing two point four five eight million outstanding. <break time="2s" /> The payee has to be one of the case's owners: Ghulam Rasool. You can't type in any other name, so the right tax and any holds always apply. <break time="2s" /> Lease rent, paid in advance for several years, <break time="2s" /> by crossed cheque, private land. <break time="2s" /> From November twenty twenty-six to October twenty twenty-nine. <break time="2s" /> Gross amount: one million rupees. <break time="2s" /> Request. <break time="2s" /> He's a filer, so the system deducts ten percent withholding tax by itself. The cheque will be for nine hundred thousand.
+
+[S28 · Over-award check (optional)]
+And the system will never let vouchers exceed the approved award. <break time="1s" /> Two and a half million? <break time="2s" /> Refused.
+
+[S29 · Finance verifies]
+Three different people touch every payment. Finance verifies it, checking the budget, any court stay or hold, and that the owner is alive. <break time="2s" />
+
+[S30 · Manager Land releases]
+Then the Manager Land releases the cheque. <break time="1s" /> The cheque date, a note, <break time="2s" /> and release. <break time="2s" /> The cheque is for the net amount, nine hundred thousand, and the posting is queued for SAP.
+
+[S31 · Receipt]
+When the owner collects the cheque, Finance records who received it: <break time="1s" /> the receipt number, the date, <break time="2s" /> Ghulam Rasool Mahar, and his CNIC. <break time="2s" /> Then prints a formal receipt of payment. <break time="2s" /> It names the parcel and its revenue location, shows the gross, the tax withheld and the net, the amount in words, what he is owed and what remains, with the declaration and signatures.
+
+[S32 · Landowner Register]
+For management and finance, every figure comes from the same records. <break time="1s" /> The landowner register lists every owner and their khasras, province by province. <break time="1s" /> Filtered down to District Ghotki, Taluka Daharki, Deh Jarwar. <break time="2s" /> Shown in Kanal, the unit of the revenue record, <break time="1s" /> one row per owner. <break time="1s" /> And exported in one click.
+
+[S33 · Dashboard and audit]
+The executive dashboard summarises approved and paid compensation, by province. <break time="2s" /> And the audit trail shows every change, every approval and every comment: who, what and when. It cannot be edited.
+
+[S34 · Close]
+So in one continuous flow, we went from a line on a map to a receipted payment. <break time="1s" /> Exploration marked the land. Three managers approved it. The land team took it up, with nothing retyped. Five people approved the award, and three people controlled the payment, with tax calculated automatically and every step on record. <break time="1s" /> That's the Land Management System for Mari Energies. Thank you.

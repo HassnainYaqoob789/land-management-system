@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<title>Select province · LMS</title>
+<script src="../assets/js/theme-init.js"></script>
+<link rel="stylesheet" href="../assets/css/tokens.css">
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/layout.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+<link rel="stylesheet" href="../assets/css/utilities.css">
+<link rel="stylesheet" href="../assets/css/responsive.css">
+<link rel="stylesheet" href="../assets/css/print.css">
+<link rel="stylesheet" href="../assets/css/features.css">
+</head>
+<body data-page="province" data-root="../">
+<main class="screen" id="prov">
+  <div class="prov-wrap">
+    <h2>Select province</h2>
+    <p id="provHello"></p>
+    <div class="prov-grid" id="provGrid"></div>
+    <a class="prov-all" id="provAll" href="../dashboard/"
+       data-act="enterProvince" data-a1="ALL">All provinces &mdash; Head Office consolidated view</a>
+    <p class="u-mt-16 u-fs-12">
+      <a class="u-link-on-dark" href="../" data-act="logout">Sign out</a></p>
+  </div>
+</main>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script src="../assets/js/core/engine.js"></script>
+<script src="../assets/js/core/calc.js"></script>
+<script src="../assets/js/core/spec.js"></script>
+<script src="../assets/js/ui/screens.js"></script>
+<script src="../assets/js/ui/print.js"></script>
+<script src="../assets/js/ui/extras.js"></script>
+<script src="../assets/js/ui/gis.js"></script>
+<script src="../assets/js/ui/reports.js"></script>
+<script src="../assets/js/ui/import.js"></script>
+<script src="../assets/js/data/demo.js"></script>
+<script src="../assets/js/app/session.js"></script>
+<script src="../assets/js/app/scope.js"></script>
+<script src="../assets/js/app/lazy.js"></script>
+<script src="../assets/js/app/print-doc.js"></script>
+<script src="../assets/js/app/actions.js"></script>
+<script src="../assets/js/app/a11y.js"></script>
+<script src="../assets/js/app/forms.js"></script>
+<script src="../assets/js/app/gis-map.js"></script>
+<script src="../assets/js/app/shell.js"></script>
+<script src="../assets/js/app/role-ui.js"></script>
+<script src="../assets/js/app/features.js"></script>
+<script src="../assets/js/app/registry.js"></script>
+<script src="../assets/js/app/boot.js"></script>
+</body>
+</html>

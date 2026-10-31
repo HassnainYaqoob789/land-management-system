@@ -1,0 +1,17 @@
+Now the key new feature. Exploration no longer describes land in words; it draws it. Sign in as the Exploration Planner. He lands on the map and sees parcels, but no owner names or payments. Click Draw land request.
+
+Click Paste lat long, paste the four GPS corners, click Use these corners. The system measures twenty point one nine acres and finds both khasras inside. Disputed land, existing leases or overlaps would show a warning here, before submitting.
+
+Click Continue. Project DHRK-301. Purpose: Well Location. Priority: Urgent. Required by fifteen January. Paste the justification. Submit to Director Operations. Request four is created and turns orange: under review.
+
+Three independent approvals follow. Sign in as Director Operations. Open Land Requests, click Details: the area, every corner and the parcels inside. Click Map to see it. His question: is the need real? Click Review, Approve, add a comment, confirm.
+
+Sign in as Regional Manager. She wants a change. Click Review, choose Return, and ask to move the north boundary away from the road. It goes back to the planner.
+
+As the planner, click Edit on map. Clear, paste the revised corners: fifteen point eight three acres. Continue, note what changed, send again. The first version is kept, and every approver decides again.
+
+Director Operations approves. The Regional Manager approves. Then Land Affairs asks: can this land be obtained? Private, two known owners, no litigation. Approve. The database itself ensures no one approves their own request or two steps.
+
+The approved request returns to the land team. As Land Officer, click Start land work. Choose Acquisition, keep the tick, add a comment, Take it up. Both parcels are now Under Acquisition everywhere.
+
+Click Create acquisition. It opens pre-filled with the project, area and khasras; nothing is retyped. Choose Private Lease, rate sixty thousand. Save. Request and acquisition are linked.

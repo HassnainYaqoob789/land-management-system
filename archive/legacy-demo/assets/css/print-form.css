@@ -1,0 +1,83 @@
+/* ============================================================
+   PRINT FORMS — stylesheet for the standalone A4 documents the
+   app generates (compensation case, receipt, lease agreement,
+   landowner statement, bilingual consent form, Urdu receipt).
+
+   This file styles a separate document written into a hidden
+   iframe by printHTML(); it is NOT loaded by the app pages.
+   ============================================================ */
+@page{size:A4;margin:10mm}
+
+body{
+  font-family:"Times New Roman",serif;color:#111;
+  margin:18mm 14mm;font-size:12px;
+}
+h1,h2,h3{margin:0}
+h2{font-size:16px;text-align:center}
+h3{font-size:13px;text-align:center;margin:2px 0 10px}
+
+table{width:100%;border-collapse:collapse;margin:6px 0 4px}
+th,td{border:1px solid #444;padding:4px 6px;font-size:11px}
+th{background:#ddd}
+
+/* a grey full-width section band, e.g. "LANDOWNER DETAILS" */
+.band{
+  background:#bbb;text-align:center;font-weight:bold;font-size:11px;
+  padding:3px;margin-top:10px;letter-spacing:1px;
+}
+/* label / value grid used for the document header block */
+.kv{display:grid;grid-template-columns:150px 1fr 170px 1fr;gap:3px 8px;margin:8px 0}
+.kv b{font-weight:normal}
+
+.r{text-align:right}
+
+/* signature blocks along the foot of the document */
+.sig{display:grid;grid-template-columns:1fr 1fr;gap:28px 40px;margin-top:30px}
+.sig div{border-top:1px solid #000;padding-top:4px;font-size:11px}
+
+.small{font-size:10px;color:#444}
+.box{border:1px solid #000;padding:3px 8px;display:inline-block;font-weight:bold}
+.hdr{display:flex;justify-content:space-between;font-size:11px}
+
+/* ---- Urdu / Nastaliq passages (bilingual consent, receipt) --- */
+.ur{
+  direction:rtl;text-align:right;
+  font-family:"Jameel Noori Nastaleeq","Noto Nastaliq Urdu","Urdu Typesetting","Noto Naskh Arabic","Segoe UI",serif;
+  font-size:16px;line-height:2.1;
+}
+
+/* ============================================================
+   Layout helpers — these replace the inline style attributes
+   the print builders used to emit.
+   ============================================================ */
+/* borderless cells in the payment-breakdown table */
+.p-nb{border:0}
+.p-tr{text-align:right}
+.p-tc{text-align:center}
+.p-fr{float:right}
+
+.p-just{text-align:justify;line-height:1.6}
+.p-just-17{text-align:justify;line-height:1.7}
+.p-lh-16{line-height:1.6}
+
+.p-mt-8{margin-top:8px}
+.p-mt-14{margin-top:14px}
+.p-mt-20{margin-top:20px}
+.p-mt-30{margin-top:30px}
+.p-mt-40{margin-top:40px}
+
+.p-fs-13{font-size:13px}
+.p-fs-15{font-size:15px}
+.p-h-38{height:38px}
+
+.p-w-70{width:70%;margin-right:20px}
+.p-w-80{width:80%;margin-left:20px}
+
+/* dashed area for a thumb impression or revenue stamp */
+.p-stamp{border:1px dashed #999;padding:14px 20px;margin-left:30px}
+
+/* DRAFT / CANCELLED watermark across an unapproved document */
+.p-watermark{
+  position:fixed;top:40%;left:10%;font-size:70px;
+  color:rgba(200,0,0,.12);transform:rotate(-25deg);font-weight:bold;
+}

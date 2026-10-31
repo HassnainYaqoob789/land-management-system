@@ -1,0 +1,80 @@
+## Login
+This is the Mari Energies Land Management System. We follow one well from a line on the map to a paid owner. First, sign in as the Land Officer. He works only in Sindh, so he sees only Sindh records.
+
+## Project
+Every land need starts with a project; every parcel, case and payment is filed under it. Open Projects, click Add Project. Code DHRK-301. Province Sindh. Name: Daharki Well-03 Exploratory Location. Type: Well Location. Block: Daharki D and PL. District: Ghotki. Area: twenty acres. Save.
+
+## Landowner 1
+Next, the owners. CNIC is the master key, so no person is ever paid twice. Open Landowners, click Add Landowner. Province Sindh. Enter the CNIC; dashes appear automatically. Name: Ghulam Rasool Mahar. Father: Muhammad Bux Mahar. Owner. Tax status: Filer. Add phone, bank and IBAN. Save.
+
+## Landowner 2
+Now his brother, Nazir Ahmed Mahar, same father. Tax status: Non-Filer, so his tax will be double. Save.
+
+## Khasra 1
+Now the land, recorded as the revenue record writes it. Open the Khasra Register, click Add Survey. Province Sindh. Location: Ghotki, Daharki, Jarwar. Project DHRK-301. Khasra 451 slash 2, block 9. Rural, private. Twelve acres. Add latitude and longitude, which put it on the map. Save. It starts as Proposed.
+
+## Khasra 2
+Second khasra: 452 slash 1. Sixty-four Kanal. Add its position and save. The system converts it to eight acres and keeps the original unit.
+
+## Shares
+Who owns what. Open Shares on the first khasra. Add both brothers: sixty and thirty. Save stays disabled: shares must total exactly one hundred. Change thirty to forty. Save. The second khasra is fifty-fifty. Later, shares change only through a formal mutation.
+
+## GIS map
+Open the GIS map. Every khasra is a dot, coloured by status: grey proposed, amber under acquisition, green acquired, blue leased, red disputed. Here are our two parcels near Jarwar.
+
+## Explorer
+Now the key new feature. Exploration no longer describes land in words; it draws it. Sign in as the Exploration Planner. He lands on the map and sees parcels, but no owner names or payments. Click Draw land request.
+
+## Draw
+Click Paste lat long, paste the four GPS corners, click Use these corners. The system measures twenty point one nine acres and finds both khasras inside. Disputed land, existing leases or overlaps would show a warning here, before submitting.
+
+## Request details
+Click Continue. Project DHRK-301. Purpose: Well Location. Priority: Urgent. Required by fifteen January. Paste the justification. Submit to Director Operations. Request four is created and turns orange: under review.
+
+## Director Operations
+Three independent approvals follow. Sign in as Director Operations. Open Land Requests, click Details: the area, every corner and the parcels inside. Click Map to see it. His question: is the need real? Click Review, Approve, add a comment, confirm.
+
+## Regional Manager returns
+Sign in as Regional Manager. She wants a change. Click Review, choose Return, and ask to move the north boundary away from the road. It goes back to the planner.
+
+## Redraw
+As the planner, click Edit on map. Clear, paste the revised corners: fifteen point eight three acres. Continue, note what changed, send again. The first version is kept, and every approver decides again.
+
+## Approvals
+Director Operations approves. The Regional Manager approves. Then Land Affairs asks: can this land be obtained? Private, two known owners, no litigation. Approve. The database itself ensures no one approves their own request or two steps.
+
+## Hand-over
+The approved request returns to the land team. As Land Officer, click Start land work. Choose Acquisition, keep the tick, add a comment, Take it up. Both parcels are now Under Acquisition everywhere.
+
+## Acquisition
+Click Create acquisition. It opens pre-filled with the project, area and khasras; nothing is retyped. Choose Private Lease, rate sixty thousand. Save. Request and acquisition are linked.
+
+## Case header
+Now compensation: what each owner is owed. Open Compensation Cases, click Add. Project DHRK-301. Land used for: Well Location. Lease rate sixty thousand per acre per year, thirty-six months. Owners: Ghulam Rasool sixty percent, Nazir Ahmed forty.
+
+## Case lines
+Add the lines. Lease: khasra 451, twelve acres. Crop: wheat, forty-five thousand per acre, five acres. Trees: six medium Kikar at eight thousand. Other: disturbance allowance, twenty-five thousand. You enter rates only; the database calculates.
+
+## Create case
+Tick all six documents. Create case. Award: two million, four hundred fifty-eight thousand rupees. The preparer has no approve button.
+
+## Approval chain
+Five people approve, one step each. Negotiation checks the rates. Legal reviews the title. The Senior Administrator verifies. The DM approves in the field. The Manager Land approves at head office, and the award locks.
+
+## Voucher
+Now payment. As Land Officer, open Payments, click Request Payment. Project DHRK-301, case CC-2026-0012. The payee must be a case owner: Ghulam Rasool. Lease Rent, advance lease, cross cheque, private. November 2026 to October 2029. Gross one million. Request. He is a filer, so ten percent tax is deducted automatically. Net: nine hundred thousand.
+
+## Over-award
+Try two and a half million. Refused: a payment can never exceed the award.
+
+## Verify and release
+Three people control every payment. Finance verifies: budget, holds, and that the owner is alive. Manager Land clicks Release cheque, sets the date, confirms. The cheque is nine hundred thousand, and is queued for SAP.
+
+## Receipt
+When the owner collects it, Finance opens Cheques, clicks Record receipt. Enter receipt number, date, name and CNIC. Save. Click Print receipt: parcel, gross, tax, net and amount in words, with signatures.
+
+## Reports
+As Manager Land, open Landowner Register. Filter Ghotki, Daharki, Jarwar. Show in Kanal, one row per owner. Export to PDF.
+
+## Close
+The dashboard shows approved and paid compensation by province, and the audit trail records every step. From a line on a map to a receipted payment, with every rule enforced. That is the Mari Energies Land Management System.

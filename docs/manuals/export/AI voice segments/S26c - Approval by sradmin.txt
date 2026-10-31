@@ -1,0 +1,1 @@
+The Senior Administrator verifies the field records. <break time="2s" />

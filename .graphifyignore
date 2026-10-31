@@ -1,0 +1,13 @@
+# Paths graphify should not index (generated output, archives, vendored prototype code)
+node_modules/
+.next/
+build/
+backups/
+playwright-report/
+test-results/
+tests/_archive/
+legacy-demo/
+docs/visual_regression/
+archive/
+requirments/
+graphify-out/

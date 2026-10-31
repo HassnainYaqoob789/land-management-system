@@ -1,0 +1,143 @@
+/* ============================================================
+   Deviations from the reference design (src/styles/legacy).
+   The legacy CSS is kept byte-for-byte; anything this application
+   needs differently lives here, each with its reason.
+   ============================================================ */
+
+/* Contrast: base.css colours every heading var(--text), which makes the
+   "Select province" title dark-on-dark on the .screen backdrop (WCAG 1.4.3). */
+.prov-wrap h2, .prov-card h3 { color: #fff; }
+
+/* The reference renders these as links; here they are buttons, which need
+   the link look reset. */
+button.u-link-on-dark { font: inherit; text-decoration: underline; padding: 0; }
+
+
+/* An authenticator QR code must sit on white to scan, in either theme. */
+.qr-box { background: #fff; padding: 8px; border-radius: var(--r-md); border: 1px solid var(--border); }
+
+/* .al is a link in the reference; as a plain message it should not look clickable. */
+div.al { cursor: default; }
+div.al:hover { border-color: var(--border); box-shadow: var(--shadow-xs); }
+
+/* Print the report or list only: the role bar and the report picker are
+   navigation, like the chrome print.css already drops. */
+@media print { .role-bar, .rlist { display: none !important; } .split { display: block; } }
+
+/* Contrast (WCAG 1.4.3, 4.5:1 for text this small). The reference's muted
+   slate #64748b measures 4.34:1 on --surface-2 and 3.86:1 on --surface-3
+   (table headers, breadcrumbs, role bar); the sidebar group titles measure
+   4.06:1. These are the nearest slate tones that pass on every surface. */
+:root:not([data-theme="dark"]) { --muted: #576579; }
+[data-theme="dark"] { --muted: #93a2b7; }
+.nav-t { color: #718198; }
+
+/* RecordPicker: a search box above the matching records (no reference
+   equivalent — the prototype's registers were small enough for one <select>). */
+.picker { display: grid; gap: 4px; }
+.sub td .picker input, .sub td .picker select { min-width: 160px; }
+
+/* chosen-record chips (acquisition surveys) */
+.u-chip { display: inline-flex; align-items: center; gap: 4px; margin: 0 6px 6px 0; }
+
+/* ---- Branding (UX-06) -----------------------------------------------------
+   The official logo replaces the reference's text "LMS" mark. The PNG is
+   opaque white, so on the dark sidebar it sits on a deliberate white tile. */
+.brand-logo { border-radius: 4px; }
+.side-brand .brand-tile {
+  background: #fff; border-radius: var(--r-sm); padding: 6px 7px; flex: none;
+  display: inline-flex; align-items: center; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.side-brand .brand-tile .brand-logo { border-radius: 0; }
+/* Header logo only where the sidebar is a drawer (the docked sidebar shows it). */
+.top-brand { display: none; flex: none; background: #fff; border-radius: var(--r-sm); padding: 3px 4px; border: 1px solid var(--border); }
+@media (max-width: 980px) { .top-brand { display: inline-flex; } }
+@media (max-width: 420px) { .top-brand { display: none; } }
+
+/* ---- Header controls (UX-02, UI-10, UX-15) -------------------------------- */
+.u-rel-inline { position: relative; display: inline-flex; }
+.bell-n {
+  position: absolute; top: 2px; right: 2px; background: #b91c1c; color: #fff; font-size: 10px; font-weight: 700;
+  min-width: 15px; height: 15px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 4px; pointer-events: none;
+}
+.user-wrap { position: relative; display: inline-flex; flex: none; }
+button.user { font: inherit; color: inherit; text-align: left; }
+.menu [role="menuitem"]:focus-visible { background: var(--surface-2); outline: 2px solid var(--accent); outline-offset: -2px; }
+.ttl { min-width: 0; }
+.ttl h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- Global search combobox (UX-05) ---------------------------------------
+   The reference's top-bar search look (.top-search*, .search-* in features.css)
+   as an inline combobox instead of a modal palette. */
+.gs { position: relative; }
+.gs-toggle { display: none; }
+.gs-field {
+  height: 34px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 0 10px; display: flex; align-items: center; gap: 8px; color: var(--muted);
+}
+.gs-field:hover { border-color: var(--border-strong); }
+.gs-field:focus-within { background: var(--surface); border-color: var(--primary-2); box-shadow: var(--focus-ring); }
+.gs-field svg { flex: none; }
+.gs-input { flex: 1; min-width: 0; height: 100%; border: 0; padding: 0; background: transparent; font-size: 12.5px; color: var(--text); }
+.gs-input:focus, .gs-input:focus-visible { outline: none; box-shadow: none; }
+.gs-input::placeholder { color: var(--muted); opacity: 1; }
+.gs-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; width: min(560px, calc(100vw - 24px)); z-index: 80;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.gs-hidden { display: none; }
+.gs-panel .search-results { min-height: 0; max-height: 60vh; }
+.gs-panel .search-empty { padding: 22px 18px; }
+.gs-note { margin: 0; padding: 6px 18px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--border); }
+@media (max-width: 600px) {
+  .gs-toggle { display: inline-flex; }
+  .gs-field { display: none; }
+  .gs.gs-open .gs-field {
+    display: flex; position: fixed; left: 8px; right: 8px; top: 8px; height: 42px; z-index: 85;
+    background: var(--surface); box-shadow: var(--shadow-lg);
+  }
+  .gs .top-search-kbd { display: none; }
+  .gs-input { font-size: 16px; }   /* no iOS zoom on focus */
+  .gs-panel { position: fixed; left: 8px; right: 8px; top: 56px; width: auto; }
+}
+
+/* ---- Footer credit (client request 2026-10-30) ---------------------------- */
+.site-foot .credit { color: var(--muted); }
+
+/* ---- Phones: no sideways scroll at 360 px (UX-15) -------------------------- */
+@media (max-width: 600px) {
+  .top { min-width: 0; }
+  .site-foot { padding: 12px 14px; gap: 8px 14px; }
+  .site-foot nav { flex-wrap: wrap; gap: 6px 14px; }
+}
+
+/* ---- GIS (UX-16): the legend stacks under the map where the map would be cramped. */
+@media (max-width: 1100px) {
+  .gl-wrap { grid-template-columns: minmax(0, 1fr); }
+  .gl-side { max-height: none; }
+}
+@media (max-width: 600px) {
+  .gl-wrap #map { height: 380px; }
+}
+
+/* ---- Top header fixes (client request 2026-10-30) --------------------------
+   1. The page path is already in the breadcrumb bar under the header; the
+      header shows the page title alone instead of repeating it.
+   2. The search box uses the room it has on wide screens, so its hint is not cut.
+   3. Phones: the province chip shows a short code, not a bare colour dot. */
+.top .ttl small { display: none; }
+.top .ttl { display: flex; align-items: center; flex: 0 1 auto; min-width: 130px; }   /* the title never collapses to nothing */
+@media (min-width: 601px) and (max-width: 1099px) { .top-search { max-width: 340px; min-width: 210px; } }
+@media (min-width: 1100px) { .top-search { max-width: 480px; min-width: 300px; } }
+@media (min-width: 1400px) { .top-search { max-width: 560px; } }
+.prov-short { display: none; }
+@media (max-width: 600px) {
+  #provChip .prov-long { display: none; }
+  #provChip .prov-short { display: inline; font-size: 12px; font-weight: 600; line-height: 1; margin-left: 5px; }
+}
+.user .avatar { font-size: 11.5px; letter-spacing: .02em; }
+
+/* Headings that receive focus programmatically (dialogs, page changes) so screen
+   readers announce them: no focus box, which looked like a stray border. */
+h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, h3[tabindex="-1"]:focus { outline: none; box-shadow: none; }

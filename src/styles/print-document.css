@@ -1,0 +1,105 @@
+/* ============================================================
+   PRINTED OUTPUT (UX-03 and the 2026-10-30 printable-outputs request)
+
+   1. printDocument() (src/lib/client/print.ts): one official document
+      on the Mari Energies letterhead. While it prints, the page behind
+      it — register, open modal — is not printed at all.
+   2. Printing an application page itself (Ctrl+P, a list's Print
+      button): the shell adds a print-only letterhead and the running
+      footer below; the on-screen design is unchanged.
+
+   The .pd rules are legacy-demo/assets/css/print-form.css (the A4
+   forms of the reference), scoped to the document container.
+   ============================================================ */
+
+/* Never on screen. */
+#lms-print-root, .print-only { display: none; }
+
+@media print {
+  /* Running footer for every printed page; printDocument() injects its
+     own @page with the document's classification, which wins. */
+  @page {
+    margin: 14mm 12mm 16mm;
+    @bottom-left { content: "Mari Energies Limited · Confidential"; font: 8pt Arial, sans-serif; color: #444; }
+    @bottom-center { content: "Developed by Alisons Technology"; font: 7.5pt Arial, sans-serif; color: #555; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt Arial, sans-serif; color: #444; }
+  }
+
+  /* ---- an application page --------------------------------------- */
+  .print-only { display: block; }
+  .print-head {
+    display: flex; align-items: center; gap: 12px; border-bottom: 1.5px solid #0b4f8a;
+    padding-bottom: 6px; margin-bottom: 10px; color: #111;
+  }
+  .print-head img { width: 44px; height: 44px; object-fit: contain; }
+  .print-head b { display: block; font-size: 13px; }
+  .print-head span { font-size: 10.5px; color: #333; }
+  .print-head .grow { flex: 1; }
+  .print-foot { margin-top: 12px; font-size: 9px; color: #444; text-align: center; }
+  table.t thead { display: table-header-group; }
+  /* the site footer is chrome (print.css hides it); the credit prints via .print-foot */
+
+  /* ---- a document from printDocument() --------------------------- */
+  html.lms-print-doc body > *:not(#lms-print-root) { display: none !important; }
+  html.lms-print-doc body { background: #fff !important; margin: 0; }
+  html.lms-print-doc #lms-print-root { display: block; }
+  /* Ordinary page print: the container (if still present) never prints. */
+  html:not(.lms-print-doc) #lms-print-root { display: none !important; }
+}
+
+/* Document layout (only ever visible in print). */
+.pd { font-family: "Times New Roman", Times, serif; color: #111; font-size: 12px; line-height: 1.35; }
+.pd-head { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #0b4f8a; padding-bottom: 6px; }
+.pd-logo { width: 56px; height: 56px; object-fit: contain; flex: none; }
+.pd-org { flex: 1; }
+.pd-org b { display: block; font-size: 16px; letter-spacing: .02em; color: #0b4f8a; }
+.pd-org span { font-size: 11px; color: #333; }
+.pd-class { border: 1px solid #7f1d1d; color: #7f1d1d; font: bold 10px Arial, sans-serif; padding: 2px 8px; text-transform: uppercase; letter-spacing: .06em; }
+.pd-title { font-size: 17px; text-align: center; margin: 10px 0 2px; }
+.pd-sub { text-align: center; margin: 0 0 6px; font-size: 12px; color: #333; }
+.pd-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 14px; margin: 6px 0; font-size: 11px; }
+.pd-meta div { display: flex; gap: 4px; }
+.pd-meta dt { font-weight: bold; }
+.pd-meta dt::after { content: ":"; }
+.pd-meta dd { margin: 0; }
+.pd-gen { font-size: 10px; color: #444; margin: 2px 0 8px; text-align: right; }
+.pd-foot { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid #999; margin-top: 18px; padding-top: 4px; font-size: 9px; color: #444; }
+
+/* print-form.css, scoped */
+.pd h2 { font-size: 16px; text-align: center; margin: 0; }
+.pd h3 { font-size: 13px; text-align: center; margin: 2px 0 10px; }
+.pd table { width: 100%; border-collapse: collapse; margin: 6px 0 4px; }
+.pd th, .pd td { border: 1px solid #444; padding: 4px 6px; font-size: 11px; vertical-align: top; }
+.pd th { background: #ddd; }
+.pd thead { display: table-header-group; }
+.pd tr { break-inside: avoid; }
+.pd .band { background: #bbb; text-align: center; font-weight: bold; font-size: 11px; padding: 3px; margin-top: 10px; letter-spacing: 1px; break-after: avoid; }
+.pd .kv { display: grid; grid-template-columns: 150px 1fr 170px 1fr; gap: 3px 8px; margin: 8px 0; }
+.pd .kv b { font-weight: normal; }
+.pd .r { text-align: right; }
+.pd .sig { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 40px; margin-top: 30px; break-inside: avoid; }
+.pd .sig div { border-top: 1px solid #000; padding-top: 4px; font-size: 11px; }
+.pd .small { font-size: 10px; color: #444; }
+.pd .box { border: 1px solid #000; padding: 3px 8px; display: inline-block; font-weight: bold; }
+.pd .hdr { display: flex; justify-content: space-between; font-size: 11px; }
+.pd .ur { direction: rtl; text-align: right; font-family: "Jameel Noori Nastaleeq", "Noto Nastaliq Urdu", "Urdu Typesetting", "Noto Naskh Arabic", serif; font-size: 16px; line-height: 2.1; }
+.pd .p-nb { border: 0; }
+.pd .p-tr { text-align: right; }
+.pd .p-tc { text-align: center; }
+.pd .p-fr { float: right; }
+.pd .p-just { text-align: justify; line-height: 1.6; }
+.pd .p-just-17 { text-align: justify; line-height: 1.7; }
+.pd .p-lh-16 { line-height: 1.6; }
+.pd .p-mt-8 { margin-top: 8px; }
+.pd .p-mt-14 { margin-top: 14px; }
+.pd .p-mt-20 { margin-top: 20px; }
+.pd .p-mt-30 { margin-top: 30px; }
+.pd .p-mt-40 { margin-top: 40px; }
+.pd .p-fs-13 { font-size: 13px; }
+.pd .p-fs-15 { font-size: 15px; }
+.pd .p-h-38 { height: 38px; }
+.pd .p-w-70 { width: 70%; margin-right: 20px; }
+.pd .p-w-80 { width: 80%; margin-left: 20px; }
+.pd .p-stamp { border: 1px dashed #999; padding: 14px 20px; margin-left: 30px; }
+/* DRAFT / CANCELLED watermark: fixed, so it repeats on every printed page. */
+.pd .p-watermark { position: fixed; top: 40%; left: 10%; font-size: 70px; color: rgba(200, 0, 0, .12); transform: rotate(-25deg); font-weight: bold; pointer-events: none; }

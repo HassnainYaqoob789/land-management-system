@@ -1,0 +1,1 @@
+He can click corners on the map, drag them, or remove them. <break time="2s" /> But most field teams carry GPS coordinates, so he pastes them. <break time="1s" /> Paste lat-long, <break time="1s" /> the four corners, <break time="1s" /> and use these corners. <break time="2s" /> The shape appears on the map instantly.

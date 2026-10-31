@@ -1,0 +1,1 @@
+Now, Create acquisition. <break time="2s" /> It opens already filled in: the project, the approved area, the target date, and the exact khasras. Nothing is retyped. <break time="1s" /> He chooses private lease, and the negotiated rate. <break time="2s" /> Save. The acquisition and the request are linked both ways.

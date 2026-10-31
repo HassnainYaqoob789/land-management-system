@@ -1,0 +1,1 @@
+Finally, the DM Land Affairs answers the last question: can this land actually be obtained? <break time="1s" /> Private land, two known owners, no litigation. Approved. <break time="2s" /> Three rules hold this together, enforced in the database itself: only the holder of each position decides that step, the person who asked can never approve, and no one decides two steps.

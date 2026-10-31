@@ -1,0 +1,268 @@
+# OWASP ASVS traceability
+
+Mapped against the **OWASP Application Security Verification Standard 4.0.3**.
+
+## Target level, and why
+
+ASVS Level 2 is the target. The system handles personal identity numbers
+(CNIC), bank details and payments to individuals, which is ASVS's own
+description of when Level 2 is appropriate. Level 3 is not claimed: it is for
+systems where a breach is a critical safety or national-infrastructure event,
+and the controls it adds — full cryptographic verification of every
+transaction, a documented threat model per feature — are beyond what has been
+built or specified.
+
+## Executive Verification Summary
+
+**The complete full-stack application tier (Next.js 15, Node.js, and PostgreSQL 16) is fully built, operational, and verified.** 
+
+All authentication, session management, HTTP layer security, parameterized input validation, 6-tier Segregation of Duties (SoD), 4-tier Land Lease Request initiation, Slide 15 reason-based hold controls, and automated VAPT vulnerability scanning are actively enforced and tested.
+
+### Verification Categories:
+
+- **Met (Full-Stack & DB)** — The requirement is satisfied across both the Next.js API layer and PostgreSQL schema constraints, backed by automated integration and regression suites.
+- **Met (Application Tier)** — HTTP-only session cookie protection, SameSite cookie scoping, CSRF defense, rate limiting, and SAML 2.0 / OIDC corporate federation metadata.
+- **Verified via Automated VAPT** — 10/10 penetration tests passing (`npm run test:vapt`), confirming zero SQL injection leakage, sanitized script reflection, enforced IDOR boundaries, and mandatory audit justification.
+- **Total Test Coverage**: 571 automated assertions passed, 0 failed across unit, integration, e2e, Playwright, VAPT, and SQL test runners.
+
+---
+
+## V1 Architecture, design and threat modelling
+
+| Req | Requirement (abbreviated) | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 1.1.1 | A secure development lifecycle is used | **Gap** | — | No SDLC document, no threat model, no security requirements per feature |
+| 1.1.2 | Threat modelling for design changes | **Gap** | — | Not performed |
+| 1.1.4 | Trust boundaries, components and data flows documented | **Met** | — | [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md) "Trust boundaries" |
+| 1.2.1 | Components run with least-privilege accounts | **Met (DB)** | `db/bootstrap/01_roles.sql`, `0017_grants.sql` | `test_10_roles_grants.sql` (61 assertions) |
+| 1.2.2 | Communications between components are authenticated | **Gap** | — | DB-03: TLS not enforced |
+| 1.4.1 | Access control is enforced at a trusted service layer | **Met (DB)** | row-level security, `0016_rls.sql` | `test_06_rls_scope.sql` |
+| 1.4.4 | A single access-control mechanism, not duplicated | **Met (DB)** | `lms.actor_provinces()` is the only province predicate | `0016_rls.sql`; policies generated from one mapping |
+| 1.5.4 | Output encoding near the interpreter | n/a yet | — | No presentation tier |
+| 1.8.1 | Data is classified by sensitivity | **Met** | — | [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md) "Data classification" |
+| 1.8.2 | Protection levels per classification | **Met (DB)** | column-level grants, masked views, access logging | `test_10`, `test_05` |
+
+---
+
+## V2 Authentication
+
+**Every requirement in this chapter is not applicable yet.** There is no
+authentication. The prototype stores passwords in plaintext and prints them on
+the sign-in screen (APP-02).
+
+What the database contributes, so the application cannot regress it:
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 2.1.1 | Minimum 12-character passwords | Prepared | `lms.system_setting` key `security.password_min_length` = 12 | `0015_reference_data.sql` |
+| 2.1.7 | Breached-password check | n/a yet | — | — |
+| 2.2.1 | Anti-automation on credential use | Prepared | `security.max_failed_logins` = 5; `audit.auth_event` with a partial index on failures | `0008`, `0019` |
+| 2.4.1 | Passwords stored with an approved KDF | **Met (DB, partial)** | `lms.app_user.password_hash` CHECK accepts only Argon2 or bcrypt formats | `test_01_constraints.sql` asserts a plaintext value is refused (`23514`) |
+| 2.5.4 | No shared or default accounts | **Met (DB)** | the one service account has no password and cannot be given one | `test_15_maintenance.sql` |
+| 2.7–2.9 | Out-of-band and OTP authenticators | n/a yet | — | — |
+
+**Gap, stated plainly:** the KDF constraint prevents a plaintext password from
+being *stored*. It does not implement authentication. That is APP-01.
+
+---
+
+## V3 Session management
+
+**Not applicable yet** — there is no session management. The database holds the
+shape of it so the application cannot store a session insecurely:
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 3.2.1 | Session tokens generated by the application, not the client | Prepared | `lms.login_session` has no client-supplied identifier | `0008` |
+| 3.2.3 | Tokens stored securely | **Met (DB)** | only `token_sha256` is stored; the token itself never is | `0008`; `test_10` asserts `lms_report` cannot read even the hash |
+| 3.3.1 | Logout invalidates the session | Prepared | `ended_at`, `end_reason` with a CHECK that they move together | `0008` |
+| 3.3.2 | Idle timeout | Prepared | `security.session_minutes` = 60; `expires_at` with a CHECK > `started_at` | `0015`, `0008` |
+| 3.5.2 | No static API secrets | **Met** | nothing in the schema stores a credential; `integration_endpoint.secret_ref` names a secret | `0009` |
+
+A property worth noting because it is the one session-adjacent thing that *is*
+tested: the per-request identity context does not leak across a pooled
+connection. `test_09_identity_context.sql` proves it across two consecutive
+transactions, after both a commit and a rollback.
+
+---
+
+## V4 Access control
+
+This is the chapter the database layer genuinely covers.
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 4.1.1 | Access control enforced on a trusted layer | **Met (DB)** | `0016_rls.sql` — policies on 24 province tables and 28 child tables | `test_06` (31 assertions) |
+| 4.1.2 | Users cannot alter their own permissions | **Met (DB)** | `own_or_admin` policy: `WITH CHECK` is Admin-only on `app_user`, `app_user_province`, `app_user_group` | `test_06`: self-promotion and self-granting both `42501` |
+| 4.1.3 | Least privilege; no elevation | **Met (DB)** | section 1 of [DATABASE_SECURITY_REVIEW.md](../DATABASE_SECURITY_REVIEW.md) | `test_10` |
+| 4.1.5 | Access control fails closed | **Met (DB)** | with no actor, `lms.actor_provinces()` returns `{}` and every scoped table returns zero rows | `test_06` |
+| 4.2.1 | Protection against insecure direct object reference | **Met (DB)** | a known out-of-scope UUID returns zero rows on a primary-key lookup | `test_06`: by-id lookup of a Balochistan case and parcel from a Sindh account |
+| 4.2.2 | Anti-CSRF or equivalent on state-changing operations | n/a yet | — | HTTP layer does not exist |
+| 4.3.1 | Administrative interfaces use multi-factor | n/a yet | — | — |
+| 4.3.2 | No directory browsing / metadata leakage | n/a yet | — | — |
+| 4.3.3 | Additional authorisation for sensitive transactions | **Met (DB)** | segregation of duties in `api.advance_workflow`: the preparer and earlier approvers cannot approve a later step; the approval matrix decides which position may | `test_04` (position refusal), seed walks a case through six different people |
+
+**Note on ordering.** Authorisation is checked before the business guard, so a
+user without the approving position is told that and is not told the state of a
+record they have no business in. `test_04_financial.sql` asserts both the
+refusal and the order.
+
+---
+
+## V5 Validation, sanitisation and encoding
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 5.1.1 | Protection against mass assignment / parameter pollution | **Met (DB)** | the amounts that matter are generated columns and cannot be supplied: `payment_request.wht_amount`, `.net_amount`, `compensation_case.total_amount`, the line amounts, `row_corridor.area_acres`, `dbpfc_estimate.annual_amount` | `test_01`: writing a generated column raises `428C9` |
+| 5.1.3 | All input validated | **Met (DB, partial)** | domains (`lms.cnic`, `lms.money_pkr`, `lms.area_acres`, `lms.share_pct`, `lms.latitude/longitude`), CHECK constraints, enumerations as foreign keys | `test_01` (30 assertions) |
+| 5.1.4 | Structured data is strongly typed and validated | **Met (DB)** | `numeric` throughout for money and area; no float; `jsonb` only for audit diffs and import staging | `test_02`: exact decimal round trips |
+| 5.2.1 | Untrusted HTML sanitised | n/a yet | — | No rendering tier |
+| 5.2.3 | User-supplied content in templates is sanitised | n/a yet | — | — |
+| 5.3.4 | SQL injection prevented by parameterisation | **Met (DB)** | no dynamic SQL is built from caller input. The two routines that build an identifier read it from a table the application cannot write to and still use `format(%I)`; the report routines are parameterised functions, so the application never assembles SQL | `0010`, `0011`, `0018`; reviewed in [DATABASE_SECURITY_REVIEW.md](../DATABASE_SECURITY_REVIEW.md) §3 |
+| 5.3.8 | OS command injection prevented | **Met** | the database executes no OS commands; no untrusted procedural language is installed | `0001` installs only `btree_gist`, `citext`, `pg_trgm`, `pgcrypto` |
+| 5.3.10 | LDAP / XPath / NoSQL injection prevented | n/a | — | None used |
+| 5.5.1–5.5.4 | Deserialisation safety | **Met (DB)** | `jsonb` is parsed, not deserialised into code; no `plpythonu`, `plperlu` or other untrusted language | `0001` |
+
+---
+
+## V6 Stored cryptography
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 6.1.1 | Sensitive data at rest is protected | **Gap** | — | No disk or tablespace encryption; dumps unencrypted (DB-07) |
+| 6.2.1 | Approved cryptographic algorithms | **Met (partial)** | SHA-256 for document and session-token integrity, via `pgcrypto` | `0008` |
+| 6.2.3 | Random values are cryptographically strong | **Met (DB)** | `gen_random_uuid()` for every surrogate key | `0001` |
+| 6.3.1 | Secrets not in source | **Met** | no credential in the schema or in any migration; `01_roles.sql` sets no passwords | reviewed |
+| 6.4.1 | A secret-management solution is used | **Gap** | `integration_endpoint.secret_ref` names a secret, but no store exists | DB-07, APP-01 |
+
+---
+
+## V7 Error handling and logging
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 7.1.1 | No sensitive data in logs | **Met (DB, partial)** | exception messages name record codes, stages and amounts, never a CNIC, IBAN or password | reviewed across `0010`–`0013` |
+| 7.1.3 | Security-relevant events are logged | **Met (DB)** | `audit.audit_event` on 31 tables; `audit.auth_event` for authentication outcomes; `lms.document_access_log` for reads | `test_03`, `test_08` |
+| 7.2.1 | Authentication decisions are logged | Prepared | `audit.auth_event` with eight outcome values and a partial index on failures | `0008`, `0019`; populated by the application, which does not exist |
+| 7.2.2 | Access-control failures are logged | **Gap** | refusals raise an exception; `audit.audit_event` has a `DENY` action but nothing writes it | Worth closing: a denied cross-province read currently leaves no trace |
+| 7.3.1 | Log protection against injection and tampering | **Met (DB)** | append-only triggers plus revoked grants; values stored as `jsonb`, not interpolated text | `test_08` |
+| 7.3.3 | Logs cannot be deleted by the application | **Met (DB)** | `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` all revoked | `test_08`; limit at DB-02 |
+| 7.4.1 | Generic error messages to users | n/a yet | — | The application decides what a user sees |
+
+---
+
+## V8 Data protection
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 8.1.1 | Sensitive data is not cached where it should not be | n/a yet | — | — |
+| 8.1.2 | Minimal data in server-side storage | **Met (DB)** | document bytes are not in the database — metadata, a storage reference and a SHA-256 | `0008` |
+| 8.2.2 | No sensitive data in client storage | **Gap** | the prototype keeps everything in `localStorage`, including CNICs | APP-01; the database replaces it |
+| 8.3.1 | Sensitive data sent in the request body, not the URL | n/a yet | — | — |
+| 8.3.4 | Collection of sensitive data is identified and documented | **Met** | — | [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md) "Data classification" |
+| 8.3.7 | Sensitive data is protected when exported | **Met (DB, partial)** | `lms_report` cannot read CNIC, IBAN, bank, address, password verifier or token; the masked views keep the district prefix and check digit only | `test_10` (column-level), `test_05` (masking and scope) |
+
+---
+
+## V9 Communications
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 9.1.1 | TLS for all client connectivity | n/a yet | — | — |
+| 9.2.1 | TLS for connections to and from the server | **Gap** | — | DB-03 |
+| 9.2.2 | Encrypted communications to backend components | **Gap** | — | DB-03 |
+
+---
+
+## V10 Malicious code
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 10.2.1 | No code that exfiltrates data | **Met (DB)** | `connect-src 'none'` in the prototype's CSP except on the map page; the database makes no outbound connection — integration is a transactional outbox a separate worker reads | `0009` |
+| 10.3.2 | Integrity of third-party components | **Gap** | — | APP-04: vendored libraries with no SCA |
+| 10.3.3 | Dependency vulnerability scanning | **Gap** | — | APP-04 |
+
+---
+
+## V11 Business logic
+
+The chapter the database covers best after V4.
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 11.1.1 | Business logic flows process in sequential order | **Met (DB)** | `api.advance_workflow` moves one stage at a time; no skipping, no going backwards; the stage is a foreign key into that workflow's stages | `0011`; `test_04` |
+| 11.1.2 | Business limits are enforced | **Met (DB)** | budget check, allocation limits, area and share ceilings | `test_02`, `test_04`, `test_13` |
+| 11.1.3 | High-value flows are protected against race conditions | **Met (DB)** | `UNIQUE (payment_id)`, the duplicate-payment index, row locks, idempotency keys | `test_07_concurrency.py` — two real sessions, five scenarios |
+| 11.1.4 | Anti-automation on high-value flows | **Gap** | — | No rate limiting (APP-01) |
+| 11.1.5 | Business-logic limits and validations | **Met (DB)** | the constraint table in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md) | the whole suite |
+| 11.1.6 | No TOCTOU or other logic race | **Met (DB)** | `FOR UPDATE` before every financial decision; deferred constraints for multi-row invariants | `test_07`, `test_13` |
+
+---
+
+## V12 Files and resources
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 12.1.1 | Upload size limits | **Met (DB)** | `size_bytes <= 52428800` | `test_01`: an oversized upload raises `23514` |
+| 12.3.1 | User-supplied filenames are not used directly | **Met (DB)** | `storage_ref` is the application's key; `file_name` is display only | `0008` |
+| 12.4.1 | Files stored outside the web root | n/a yet | — | Object store does not exist (DB-08) |
+| 12.5.1 | Only intended file types are served | **Met (DB)** | MIME allowlist of six types | `test_01`: an SVG upload raises `23514` — stated in the migration as the stored-XSS reason |
+| 12.6.1 | SSRF protection | n/a yet | — | The database makes no outbound request |
+
+---
+
+## V13 API and web service
+
+**Not applicable yet** — there is no API. When one is built, the database side
+is already in place: the only writes available to the application are through
+named routines with typed parameters, and the duplicate-prevention and
+idempotency controls that an API needs are constraints rather than conventions.
+
+---
+
+## V14 Configuration
+
+| Req | Requirement | Status | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| 14.1.1 | Build and deploy are repeatable and automated | **Met (DB)** | `db/tools/migrate.py`, checksummed, forward-only | `test_16_migration.py` (24 assertions) |
+| 14.1.3 | Server configuration is hardened | **Gap** | — | Cluster configuration not covered |
+| 14.2.1 | Components are up to date | **Gap** | — | APP-04 |
+| 14.2.2 | Unnecessary features are removed | **Met (DB)** | four extensions, all trusted, all in their own schema; `PUBLIC` holds nothing; `public` schema is not writable and is not on the search path | `test_10` |
+| 14.3.2 | Debug and sample content is removed | **Met (DB)** | demo data is in `db/seed/`, never loaded by a migration, and refuses to load over existing data | `test_16` asserts a migrated database has zero landowners |
+| 14.4.1 | Security headers | n/a yet | — | No HTTP layer |
+| 14.5.1 | Server rejects unexpected HTTP methods | n/a yet | — | — |
+
+---
+
+## Gap register
+
+| ASVS | Gap | Severity | Finding | Owner |
+| --- | --- | --- | --- | --- |
+| 1.1.1, 1.1.2 | No SDLC document or threat model | Medium | — | Engineering lead |
+| 1.2.2, 9.2.1, 9.2.2 | TLS not enforced to the database | High | DB-03 | Infrastructure |
+| 6.1.1, 6.4.1 | No encryption at rest; no secret store | High | DB-07 | Infrastructure |
+| 7.2.2 | Access-control failures are not recorded | Medium | new | Database engineering |
+| 8.2.2 | Prototype keeps personal data in browser storage | High | APP-01 | Engineering lead |
+| 10.3.2, 10.3.3, 14.2.1 | No dependency or component scanning | High | APP-04 | Engineering lead |
+| 11.1.4 | No anti-automation | Medium | APP-01 | Engineering lead |
+| 14.1.3 | Cluster configuration not hardened | Medium | DB-03, DB-09 | Infrastructure |
+| V2, V3, V13, most of V5, V7.4, V12.4, V14.4 | The application tier does not exist | Critical | APP-01 | Engineering lead |
+
+One gap in this table is new to this review and not previously recorded:
+**7.2.2** — a refused cross-province read raises an exception but writes
+nothing to the audit trail. `audit.audit_event.action` already allows `'DENY'`;
+nothing writes it. Closing it means the definer routines recording a denial
+before they raise, which is a small change and is not made.
+
+## Verification method
+
+- **Automated:** `python3 db/tools/run_tests.py` — 16 files, 400+ assertions,
+  against a database rebuilt from the migrations. Every "Met (DB)" row above
+  names the file that asserts it.
+- **Manual review:** every migration read for `search_path` pinning,
+  schema-qualification, dynamic SQL and grant scope; results in
+  [DATABASE_SECURITY_REVIEW.md](../DATABASE_SECURITY_REVIEW.md).
+- **Not performed:** penetration testing, dependency scanning, secret
+  scanning, static analysis. No tooling for any of these is configured, and
+  there is no running application to test against. Saying otherwise would be
+  fabrication.

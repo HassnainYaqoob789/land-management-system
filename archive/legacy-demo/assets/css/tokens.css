@@ -1,0 +1,152 @@
+/* ============================================================
+   TOKENS — Modern Enterprise Design System Tokens
+   Crafted with human visual hierarchy, refined micro-typography,
+   and executive Slate/Navy/Emerald palette.
+   ============================================================ */
+:root {
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+
+  /* Surfaces & Neutral Palette (Light Mode - Modern Crisp Slate) */
+  --bg: #f8fafc;            /* slate-50 */
+  --surface: #ffffff;       /* clean white card */
+  --surface-2: #f1f5f9;     /* slate-100 */
+  --surface-3: #e2e8f0;     /* slate-200 */
+  --text: #0f172a;          /* slate-900: sharp & high contrast */
+  --text-2: #334155;        /* slate-700 */
+  --muted: #64748b;         /* slate-500 */
+  --border: #e2e8f0;        /* slate-200: clean subtle line */
+  --border-strong: #cbd5e1; /* slate-300 */
+  --border-subtle: #f1f5f9;
+
+  /* Executive Brand & Interactive Colors */
+  --primary: #0f233a;       /* Deep executive navy */
+  --primary-2: #1e40af;     /* Rich royal blue (accessible on white 7:1) */
+  --primary-hover: #1d4ed8;
+  --fill-2: #1e40af;
+
+  /* Semantic Status Colors (Soft Human Tints) */
+  --accent: #059669;        /* emerald-600 */
+  --accent-2: #10b981;
+  --accent-strong: #047857; /* emerald-700 */
+  --accent-strong-2: #065f46;
+  --accent-text: #047857;
+  --accent-bg: #ecfdf5;     /* emerald-50 */
+  --accent-border: #a7f3d0;
+
+  --warn: #d97706;          /* amber-600 */
+  --warn-bg: #fffbeb;       /* amber-50 */
+  --warn-text: #92400e;     /* amber-800 */
+  --warn-border: #fde68a;
+
+  --danger: #dc2626;        /* red-600 */
+  --danger-bg: #fef2f2;     /* red-50 */
+  --danger-text: #991b1b;   /* red-800 */
+  --danger-border: #fecaca;
+
+  --info: #0284c7;          /* sky-600 */
+  --info-bg: #f0f9ff;       /* sky-50 */
+  --info-text: #075985;
+  --info-border: #bae6fd;
+
+  --off-text: #64748b;
+
+  /* Sidebar Design (Deep Midnight Executive Slate) */
+  --side: #090e17;
+  --side-2: #121c2d;
+  --side-hover: rgba(255, 255, 255, 0.05);
+  --side-active: rgba(255, 255, 255, 0.09);
+  --side-text: #94a3b8;
+  --side-text-active: #ffffff;
+  --side-border: rgba(255, 255, 255, 0.07);
+
+  /* Human Multi-Stop Ambient Shadows */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
+  --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.09), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+
+  /* Shape & Metrics */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r: 8px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-full: 9999px;
+
+  /* Focus Ring */
+  --focus: #2563eb;
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.25);
+
+  /* Spacing Scale */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 28px;
+
+  /* Layout Metrics */
+  --side-w: 248px;
+  --top-h: 56px;
+}
+
+/* ============================================================
+   DARK MODE — Sophisticated Midnight Theme (Linear / Vercel style)
+   ============================================================ */
+[data-theme="dark"] {
+  --bg: #090d16;
+  --surface: #0f172a;
+  --surface-2: #162238;
+  --surface-3: #1e2e4a;
+  --text: #f1f5f9;
+  --text-2: #cbd5e1;
+  --muted: #8292a8;
+  --border: #1e2c44;
+  --border-strong: #2c4164;
+  --border-subtle: #141f33;
+
+  --primary: #1d4ed8;
+  --primary-2: #38bdf8;
+  --primary-hover: #60a5fa;
+  --fill-2: #2563eb;
+
+  --accent: #10b981;
+  --accent-text: #34d399;
+  --accent-bg: #064e3b33;
+  --accent-border: #05966955;
+
+  --warn: #f59e0b;
+  --warn-bg: #78350f33;
+  --warn-text: #fbbf24;
+  --warn-border: #d9770655;
+
+  --danger: #ef4444;
+  --danger-bg: #7f1d1d33;
+  --danger-text: #f87171;
+  --danger-border: #dc262655;
+
+  --info: #38bdf8;
+  --info-bg: #0c4a6e33;
+  --info-text: #7dd3fc;
+  --info-border: #0284c755;
+
+  --off-text: #94a3b8;
+
+  --side: #05080e;
+  --side-2: #0b111c;
+  --side-hover: rgba(255, 255, 255, 0.04);
+  --side-active: rgba(255, 255, 255, 0.08);
+  --side-text: #8292a8;
+  --side-text-active: #ffffff;
+  --side-border: rgba(255, 255, 255, 0.06);
+
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+
+  --focus: #38bdf8;
+  --focus-ring: 0 0 0 3px rgba(56, 189, 248, 0.3);
+}

@@ -1,0 +1,41 @@
+# ---- dependencies and builds ----
+node_modules/
+.next/
+.next-test/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# ---- secrets and local data (NEVER commit) ----
+.env
+.env.*
+!.env.example
+.data/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ---- database dumps and backups (move them with scp, not git) ----
+backups/
+db/perf/
+db/live-snapshot/
+*.dump
+*.backup
+
+# ---- client source material (stays on the developer PC) ----
+archive/requirments/
+
+# ---- test and tool output ----
+test-results/
+playwright-report/
+coverage/
+graphify-out/cache/
+.graph-it/cache/
+__pycache__/
+*.pyc
+
+# ---- editor / OS ----
+.DS_Store
+Thumbs.db
+*.log

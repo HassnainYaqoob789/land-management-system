@@ -1,0 +1,1 @@
+Then the Manager Land releases the cheque. <break time="1s" /> The cheque date, a note, <break time="2s" /> and release. <break time="2s" /> The cheque is for the net amount, nine hundred thousand, and the posting is queued for SAP.

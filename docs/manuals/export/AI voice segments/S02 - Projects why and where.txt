@@ -1,0 +1,1 @@
+Our Land Officer, Sanaullah, works only in Sindh, and the system shows him only Sindh records. <break time="1s" /> Every piece of land starts with a reason: a project. <break time="1s" /> He opens Projects and Well Locations, and clicks Add Project.

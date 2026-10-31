@@ -1,0 +1,365 @@
+/* ============================================================
+   RESPONSIVE — Enterprise Multi-Device Adaptation
+   Fluid layout from 320px mobile phones to 4K ultra-wide monitors.
+   ============================================================ */
+
+/* ---- Core Fluid Grids ------------------------------------------- */
+.grid2 { grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); }
+.grid3 { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+.kpis  { grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); }
+.totals{ grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); }
+.dl    { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+.u-minw-380 { min-width: min(380px, 100%); }
+.search { min-width: min(230px, 100%); }
+
+/* ---- Form grids ------------------------------------------------- */
+.fgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fg { min-width: 0; }
+
+/* ---- Comfortable Touch Targets (WCAG 2.2) ----------------------- */
+.btn { min-height: 34px; }
+.btn-sm { min-height: 28px; }
+.acts button, .acts a { min-width: 28px; min-height: 28px; justify-content: center; }
+table.t td .cell-link { margin: -7px -10px; padding: 7px 10px; }
+table.t td a:not(.cell-link), .sub td a { display: inline-block; padding: 3px 0; min-height: 24px; }
+.tab { min-height: 36px; }
+.addb, .bx { min-width: 30px; min-height: 30px; }
+select, .sel { max-width: 100%; }
+.u-stack .btn { white-space: normal; justify-content: flex-start; text-align: left; }
+table.t td .mono, table.t td.mono { white-space: nowrap; }
+
+/* Touch screen improvements (pointer: coarse) */
+@media (pointer: coarse) {
+  .btn { min-height: 42px; }
+  .btn-sm { min-height: 36px; }
+  .acts { gap: 8px; }
+  .acts button, .acts a { min-width: 40px; min-height: 40px; }
+  .nav-i { padding: 12px 18px; }
+  .menu a, .menu button { padding: 12px 14px; min-height: 42px; }
+  .sel, .search, .fg input, .fg select, .fg textarea {
+    min-height: 42px;
+    font-size: 16px; /* 16px prevents iOS Safari auto-zoom */
+  }
+}
+
+/* ============================================================
+   TABLETS & MEDIUM SCREENS (<= 980px)
+   ============================================================ */
+@media (max-width: 980px) {
+  /* Layout shifts: Main occupies 100%, Sidebar becomes off-canvas drawer */
+  .main {
+    margin-left: 0 !important;
+    width: 100%;
+    min-width: 0;
+  }
+  .side {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 280px;
+    max-width: 85vw;
+    z-index: 1000;
+    transform: translateX(-100%);
+    box-shadow: none;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .side.open {
+    transform: translateX(0);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.65);
+  }
+  .side-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(3px);
+    z-index: 990;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .side-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Hamburger Toggle Button */
+  .top .burger {
+    display: inline-flex !important;
+    flex: none;
+    cursor: pointer;
+  }
+
+  /* Utility class to hide secondary items on tablets/mobile */
+  .hide-m {
+    display: none !important;
+  }
+
+  /* Topbar metrics */
+  .top {
+    padding: 8px 14px;
+    gap: 8px;
+  }
+  .top-search {
+    max-width: 240px;
+    min-width: 150px;
+    margin: 0 4px;
+  }
+
+  /* Split and column grids */
+  .split, .u-split-330 { grid-template-columns: 1fr; }
+  .prov-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   SMARTPHONES & COMPACT SCREENS (<= 700px)
+   ============================================================ */
+@media (max-width: 700px) {
+  .content {
+    padding: 12px 10px 28px;
+  }
+
+  /* Form and grid collapse */
+  .fgrid { grid-template-columns: 1fr; }
+  .u-col-span-2 { grid-column: auto; }
+  .u-cols-3, .u-cols-4 { grid-template-columns: repeat(2, 1fr); }
+  .checks { grid-template-columns: 1fr; }
+
+  /* Cards & Toolbar bars */
+  .card {
+    padding: 14px 12px;
+    margin-bottom: 12px;
+    border-radius: var(--r-md);
+  }
+  .card-h {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .card-h .bar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+  }
+  .bar .grow { display: none; }
+  .bar .sel, .bar .search, .bar input {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .btn {
+    white-space: normal;
+  }
+
+  /* Horizontal data table container */
+  .tw {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--r-md);
+  }
+  table.t {
+    min-width: 580px;
+  }
+
+  /* Modals take full screen on phones */
+  .mb {
+    padding: 6px;
+    align-items: flex-end;
+  }
+  .modal, .modal.sm, .modal.lg {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100vh - 12px);
+    margin: 0 auto;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+  }
+  .mbody { padding: 14px 12px; }
+  .mf {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .mf .btn {
+    flex: 1 1 100%;
+    min-height: 40px;
+    justify-content: center;
+  }
+
+  /* Sticky Drawer adapts to full width on phone */
+  .sticky-dock {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    right: -100vw !important;
+  }
+  .sticky-dock.open {
+    transform: translateX(-100vw) !important;
+  }
+
+  /* Hide floating sticky notes on small screens to avoid obstruction */
+  .floating-notes {
+    display: none !important;
+  }
+
+  /* Authentication / Login screen */
+  .login-card {
+    padding: 24px 16px;
+    width: 100%;
+    margin: 16px auto;
+  }
+  .site-foot nav { width: 100%; }
+}
+
+/* ============================================================
+   NARROW PHONES (<= 600px)
+   ============================================================ */
+@media (max-width: 600px) {
+  .top {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  .ttl h1 {
+    font-size: 13.5px;
+  }
+  .ttl small {
+    display: none !important;
+  }
+
+  /* Quick Search button collapses to icon-only on mobile phones */
+  .top-search {
+    flex: none;
+    width: 34px;
+    min-width: 34px;
+    max-width: 34px;
+    margin: 0;
+  }
+  .top-search-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+  .top-search-text,
+  .top-search-kbd {
+    display: none !important;
+  }
+  .top-search-btn svg {
+    margin: 0;
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Province chip collapses to color indicator dot */
+  #provChip {
+    font-size: 0 !important;
+    gap: 0 !important;
+    padding: 7px 8px !important;
+    line-height: 0;
+    flex: none;
+  }
+  #provChip .dot {
+    width: 10px;
+    height: 10px;
+    margin: 0;
+  }
+
+  /* User menu chip on mobile */
+  .user {
+    padding: 3px !important;
+    gap: 0;
+  }
+  .user .avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  .user .menu {
+    right: 0;
+    left: auto;
+    width: min(280px, 90vw);
+  }
+
+  /* Breadcrumbs scroll horizontally */
+  .crumbs {
+    padding: 6px 10px;
+    font-size: 11px;
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .crumbs::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Role bar compact */
+  .role-bar {
+    padding: 6px 10px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .role-bar .who {
+    display: none;
+  }
+
+  /* Global Search Modal responsive styling */
+  .search-modal {
+    width: calc(100vw - 12px) !important;
+    max-height: 90vh !important;
+    margin: 6px auto !important;
+    border-radius: var(--r-md) !important;
+  }
+  .search-head {
+    padding: 10px 14px;
+  }
+  .search-filters {
+    padding: 6px 10px;
+    gap: 4px;
+  }
+  .s-filter {
+    padding: 2px 9px;
+    font-size: 11px;
+  }
+  .search-results {
+    max-height: 60vh;
+  }
+  .search-foot {
+    padding: 8px 12px;
+  }
+  .search-foot .sf-hint {
+    display: none !important;
+  }
+
+  /* Reminders panel */
+  .reminders-filter-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .reminders-filter-bar .btn {
+    flex: 1 1 auto;
+  }
+}
+
+/* ============================================================
+   EXTRA SMALL PHONES (<= 420px)
+   ============================================================ */
+@media (max-width: 420px) {
+  .u-cols-3, .u-cols-4, .kpis, .totals {
+    grid-template-columns: 1fr !important;
+  }
+  .kpi .v {
+    font-size: 20px;
+  }
+  .cal-d {
+    min-height: 60px;
+  }
+  .cal-e {
+    font-size: 9.5px;
+  }
+  .top .ibtn {
+    width: 32px;
+    height: 32px;
+  }
+}

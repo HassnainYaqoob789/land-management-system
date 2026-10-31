@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* The look of the application comes from the legacy design system in
+   src/styles/legacy (copied verbatim from legacy-demo/assets/css, which is the
+   reference). Do not restyle components here; change the reference first. */

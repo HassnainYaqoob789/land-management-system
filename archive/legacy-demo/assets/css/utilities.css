@@ -1,0 +1,110 @@
+/* ============================================================
+   UTILITIES — small single-purpose classes that replace the
+   inline style="" attributes the markup used to carry.
+   Composable: an element may take several (e.g. u-w-110 u-ta-right).
+   ============================================================ */
+
+/* ---- spacing --------------------------------------------- */
+.u-m-0{margin:0}
+.u-mt-6{margin-top:6px}
+.u-mt-8{margin-top:8px}
+.u-mt-10{margin-top:10px}
+.u-mt-12{margin-top:12px}
+.u-mt-14{margin-top:14px}
+.u-mt-16{margin-top:16px}
+.u-mb-6{margin-bottom:6px}
+.u-mb-8{margin-bottom:8px}
+.u-mb-10{margin-bottom:10px}
+
+/* section headings inside record views and panels */
+.u-vh{margin:14px 0 4px}
+.u-sec-head{margin:14px 0 8px}
+.u-subhead{margin:12px 0 6px;font-size:12.5px}
+.u-subhead-2{margin:12px 0 4px}
+
+/* toolbar pinned to the right of a card (pagination strip) */
+.u-pager{margin:10px 0 0;justify-content:flex-end}
+
+/* ---- typography ------------------------------------------ */
+.u-ta-left{text-align:left}
+.u-ta-right{text-align:right}
+.u-ta-center{text-align:center}
+.u-fs-11{font-size:11px}
+.u-fs-115{font-size:11.5px}
+.u-fs-12{font-size:12px}
+.u-fs-125{font-size:12.5px}
+.u-fw-400{font-weight:400}
+.u-dim{opacity:.85}
+.u-nowrap{white-space:nowrap}
+.u-wrap-84{white-space:normal;min-width:84px}
+.u-list{padding-left:18px;line-height:1.8}
+
+/* ---- colour ---------------------------------------------- */
+.u-accent{color:var(--accent-text)}
+.u-danger{color:var(--danger)}
+.u-bg-danger{background:var(--danger)}
+/* the ROW corridor colour, used for legend swatches */
+.u-bg-row{background:#7a4fc2}
+/* a link sitting on the dark province/login background */
+.u-link-on-dark{color:#cfe0f5}
+.u-link-on-dark:hover{color:#fff}
+
+/* ---- flex & grid ----------------------------------------- */
+.u-flex-1{flex:1}
+.u-stack{flex-direction:column;align-items:stretch}
+.u-row-6{display:flex;gap:6px}
+.u-jc-center{justify-content:center}
+.u-cols-1{grid-template-columns:1fr}
+.u-cols-3{grid-template-columns:repeat(3,1fr)}
+.u-cols-4{grid-template-columns:repeat(4,1fr)}
+.u-split-330{grid-template-columns:1fr 330px}
+.u-col-span-2{grid-column:span 2}
+
+/* ---- sizing ---------------------------------------------- */
+.u-w-full{width:100%}
+.u-w-110{width:110px}
+.u-mw-380{max-width:380px}
+.u-minw-380{min-width:380px}
+.u-mh-none{max-height:none}
+.u-mh-260{max-height:260px}
+.u-mh-300{max-height:300px}
+.u-mh-330{max-height:330px}
+.u-mh-340{max-height:340px}
+.u-mh-360{max-height:360px}
+
+/* ---- misc ------------------------------------------------ */
+.u-clickable{cursor:pointer}
+.u-hr{margin:5px 0;border:0;border-top:1px solid var(--border)}
+/* coloured rule used in the GIS legend */
+.lgd-bar{border-radius:2px;height:4px}
+
+/* ============================================================
+   STATE CLASSES — replace the handful of style="" attributes
+   whose value depended on the record being rendered.
+   ============================================================ */
+/* a total that does not reconcile (shares != 100%, negative balance) */
+.is-bad{color:var(--danger)}
+/* an option that is absent from a checklist: struck through and muted, but
+   still legible (a 40% fade fell below WCAG contrast) */
+.is-off{color:var(--off-text);text-decoration:line-through;background:transparent;border-style:dashed}
+/* a soft-deleted attachment */
+.is-deleted{opacity:.55}
+/* a form field that needs the full width of the grid */
+.is-wide{grid-column:1/-1}
+/* table wrapper height in the compact (side-by-side) report layout */
+.is-compact{max-height:330px}
+.is-tall{max-height:64vh}
+
+/* ============================================================
+   RUNTIME CUSTOM PROPERTIES — set from JS (never inline CSS).
+   Each reads a --var the script assigns with setProperty().
+   ============================================================ */
+/* province tile gradient, status dot, legend swatch */
+.has-bg{background:var(--bg-dyn)}
+/* left accent rule on alerts and calendar entries */
+.has-accent{border-left:4px solid var(--accent-dyn)}
+.has-accent-color{border-left-color:var(--accent-dyn)}
+/* text tinted by record status */
+.has-color{color:var(--color-dyn)}
+/* a report column with an author-specified minimum width */
+.has-minw{min-width:var(--minw-dyn)}

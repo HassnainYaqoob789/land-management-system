@@ -1,0 +1,1 @@
+Now the most important new capability. <break time="1s" /> This is the Exploration Planner. He lands straight on the map. He can see projects, parcels and land status, but no owner names, CNICs or payments. That's least privilege, by design. <break time="1s" /> He clicks Draw land request.

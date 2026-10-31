@@ -1,0 +1,1 @@
+The Regional Manager looks at it from the region's side, and asks for a change. <break time="1s" /> Instead of a phone call and a new paper form, she returns it, with a comment: <break time="2s" /> move the north boundary away from the link road. <break time="1s" /> It goes back to the planner.

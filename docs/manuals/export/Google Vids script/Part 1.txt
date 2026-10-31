@@ -1,0 +1,15 @@
+This is the Mari Energies Land Management System. We follow one well from a line on the map to a paid owner. First, sign in as the Land Officer. He works only in Sindh, so he sees only Sindh records.
+
+Every land need starts with a project; every parcel, case and payment is filed under it. Open Projects, click Add Project. Code DHRK-301. Province Sindh. Name: Daharki Well-03 Exploratory Location. Type: Well Location. Block: Daharki D and PL. District: Ghotki. Area: twenty acres. Save.
+
+Next, the owners. CNIC is the master key, so no person is ever paid twice. Open Landowners, click Add Landowner. Province Sindh. Enter the CNIC; dashes appear automatically. Name: Ghulam Rasool Mahar. Father: Muhammad Bux Mahar. Owner. Tax status: Filer. Add phone, bank and IBAN. Save.
+
+Now his brother, Nazir Ahmed Mahar, same father. Tax status: Non-Filer, so his tax will be double. Save.
+
+Now the land, recorded as the revenue record writes it. Open the Khasra Register, click Add Survey. Province Sindh. Location: Ghotki, Daharki, Jarwar. Project DHRK-301. Khasra 451 slash 2, block 9. Rural, private. Twelve acres. Add latitude and longitude, which put it on the map. Save. It starts as Proposed.
+
+Second khasra: 452 slash 1. Sixty-four Kanal. Add its position and save. The system converts it to eight acres and keeps the original unit.
+
+Who owns what. Open Shares on the first khasra. Add both brothers: sixty and thirty. Save stays disabled: shares must total exactly one hundred. Change thirty to forty. Save. The second khasra is fifty-fifty. Later, shares change only through a formal mutation.
+
+Open the GIS map. Every khasra is a dot, coloured by status: grey proposed, amber under acquisition, green acquired, blue leased, red disputed. Here are our two parcels near Jarwar.

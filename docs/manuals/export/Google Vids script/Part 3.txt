@@ -1,0 +1,19 @@
+Now compensation: what each owner is owed. Open Compensation Cases, click Add. Project DHRK-301. Land used for: Well Location. Lease rate sixty thousand per acre per year, thirty-six months. Owners: Ghulam Rasool sixty percent, Nazir Ahmed forty.
+
+Add the lines. Lease: khasra 451, twelve acres. Crop: wheat, forty-five thousand per acre, five acres. Trees: six medium Kikar at eight thousand. Other: disturbance allowance, twenty-five thousand. You enter rates only; the database calculates.
+
+Tick all six documents. Create case. Award: two million, four hundred fifty-eight thousand rupees. The preparer has no approve button.
+
+Five people approve, one step each. Negotiation checks the rates. Legal reviews the title. The Senior Administrator verifies. The DM approves in the field. The Manager Land approves at head office, and the award locks.
+
+Now payment. As Land Officer, open Payments, click Request Payment. Project DHRK-301, case CC-2026-0012. The payee must be a case owner: Ghulam Rasool. Lease Rent, advance lease, cross cheque, private. November 2026 to October 2029. Gross one million. Request. He is a filer, so ten percent tax is deducted automatically. Net: nine hundred thousand.
+
+Try two and a half million. Refused: a payment can never exceed the award.
+
+Three people control every payment. Finance verifies: budget, holds, and that the owner is alive. Manager Land clicks Release cheque, sets the date, confirms. The cheque is nine hundred thousand, and is queued for SAP.
+
+When the owner collects it, Finance opens Cheques, clicks Record receipt. Enter receipt number, date, name and CNIC. Save. Click Print receipt: parcel, gross, tax, net and amount in words, with signatures.
+
+As Manager Land, open Landowner Register. Filter Ghotki, Daharki, Jarwar. Show in Kanal, one row per owner. Export to PDF.
+
+The dashboard shows approved and paid compensation by province, and the audit trail records every step. From a line on a map to a receipted payment, with every rule enforced. That is the Mari Energies Land Management System.

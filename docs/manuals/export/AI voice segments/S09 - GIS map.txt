@@ -1,0 +1,1 @@
+Everything with coordinates appears on the map. <break time="1s" /> Each dot is a khasra, coloured by its land status: grey for proposed, amber under acquisition, green acquired, blue leased, and red disputed. <break time="1s" /> Here are our two new parcels near Jarwar. <break time="1s" /> Operations, the land team and management all look at the same picture.
