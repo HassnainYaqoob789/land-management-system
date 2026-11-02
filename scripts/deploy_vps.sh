@@ -86,11 +86,14 @@ for _ in $(seq 1 30); do
 done
 echo "login page: HTTP $code"
 
-step "7/7 restart after a reboot (cron)"
-LINE='@reboot /bin/bash -c "export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; pm2 resurrect" >> $HOME/logs/pm2-reboot.log 2>&1'
+step "7/7 restart after a reboot + 5-minute watchdog (cron)"
+# Both lines load nvm first (the old '@reboot bash -lc pm2 resurrect' did not, so nothing came back).
+# Other cron lines are kept; only our two are replaced.
+REBOOT='@reboot /bin/bash -c "export NVM_DIR=\$HOME/.nvm; . \$NVM_DIR/nvm.sh; pm2 resurrect" >> $HOME/logs/pm2-reboot.log 2>&1 # pm2-reboot'
+WATCH='*/5 * * * * /bin/bash -c "export NVM_DIR=\$HOME/.nvm; . \$NVM_DIR/nvm.sh; pm2 ping >/dev/null; pm2 describe lms-app >/dev/null 2>&1 || pm2 resurrect" >> $HOME/logs/pm2-watchdog.log 2>&1 # pm2-watchdog'
 mkdir -p "$HOME/logs"
-( crontab -l 2>/dev/null | grep -v 'pm2 resurrect' ; echo "$LINE" ) | crontab -
-crontab -l | grep 'pm2 resurrect'
+{ crontab -l 2>/dev/null | grep -v -e 'pm2-reboot' -e 'pm2-watchdog' -e '^@reboot.*pm2 resurrect' || true; echo "$REBOOT"; echo "$WATCH"; } | crontab -
+crontab -l | grep -e 'pm2-reboot' -e 'pm2-watchdog'
 
 pm2 list
 [ "$code" = "200" ] && echo "DONE: the site is up." || { echo "The app did not answer: run  pm2 logs lms-app --lines 50"; exit 1; }
