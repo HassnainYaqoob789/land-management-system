@@ -221,6 +221,8 @@ For each row: sign in → **Acquisition & Title** → on ACQ-2026-0004 click the
 
 ## Part 5. Land sold, payment goes to the new owner (6 min)
 
+> **Check first:** the Part 0.3 **Shares** (Nazir 40% on AREA-000034) must be saved **before** the mutation is created. The mutation takes the khasras from the transferor's recorded shares at the moment it is saved. Without them, the last step is refused with "Select the holdings to transfer."
+
 1. Sign in as **`lofield`** → **Mutation & Succession** → **+ Add Mutation**:
    - Type `Sale / Transfer`
    - Transferor: search `Nazir` → Nazir Ahmed Mahar

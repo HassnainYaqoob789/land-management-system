@@ -123,8 +123,10 @@ export function RefSelect({ source, value, onChange, id, required, all, label, c
 /**
  * Workflow actions for one record, from lms.workflow / lms.workflow_stage:
  * advance to the next stage, and cancel or stop where the workflow allows it.
- * The server (api.advance_workflow) decides who may act; `can` only hides
- * buttons a user could never use.
+ * The server (api.advance_workflow) decides who may act. Here `can` hides the
+ * buttons from users without the permission, and the "→ next" button is shown
+ * only to holders of an approval position that owns that step
+ * (lms.workflow_step_group); everyone else sees who the record is waiting on.
  */
 export function WorkflowActions({ workflow, resource, record, can, stageField = 'stage_code', idField = 'id', label }: {
   workflow: string; resource: string; record: any; can: boolean; stageField?: string; idField?: string; label?: string;
@@ -134,12 +136,16 @@ export function WorkflowActions({ workflow, resource, record, can, stageField = 
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { currentUser } = useLMS();
+  const myGroups = currentUser?.groups ?? [];
   const stage = record[stageField];
   const wf = ref?.workflows[workflow];
   if (!wf || !can) return null;
   const st = wf.stages.find((s) => s.code === stage);
   if (!st || st.terminal || (wf.lockAt && stage === wf.lockAt)) return null;
   const next = nextStage(ref, workflow, stage);
+  const nextGroups = wf.stages.find((s) => s.code === next)?.groups ?? [];
+  const mayAdvance = !!next && (nextGroups.length === 0 || nextGroups.some((g) => myGroups.includes(g)));
   const side = [wf.allowsCancel && 'Cancelled', wf.allowsStop && 'Stopped'].filter(Boolean) as string[];
   const terminal = target === 'Cancelled' || target === 'Stopped';
 
@@ -155,7 +161,9 @@ export function WorkflowActions({ workflow, resource, record, can, stageField = 
 
   return (
     <>
-      {next && <button onClick={() => { setError(null); setTarget(next); }} title={`Move to ${next}`}>→ {next}</button>}
+      {mayAdvance && <button onClick={() => { setError(null); setTarget(next); }} title={`Move to ${next}`}>→ {next}</button>}
+      {next && !mayAdvance && <small className="note" style={{ whiteSpace: 'normal', maxWidth: 170, lineHeight: 1.3 }}
+        title={`Next step: ${next}. Done by: ${nextGroups.join(', ')}`}>Waiting on {nextGroups.join(' / ')}</small>}
       {side.map((s) => <button key={s} className="del" onClick={() => { setError(null); setTarget(s); }}>{s === 'Cancelled' ? 'Cancel' : 'Stop'}</button>)}
       <Modal open={!!target} size="sm" stacked icon={terminal ? 'x' : 'send'}
         title={`${label ?? record.code ?? ''} → ${target ?? ''}`} onClose={() => setTarget(null)}

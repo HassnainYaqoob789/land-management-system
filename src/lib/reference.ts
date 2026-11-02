@@ -3,7 +3,9 @@
 
 export interface Reference {
   lookups: Record<string, { code: string; name: string }[]>;
-  workflows: Record<string, { label: string; stages: { code: string; label: string; seq: number; terminal: boolean; note: string | null }[];
+  workflows: Record<string, { label: string; stages: { code: string; label: string; seq: number; terminal: boolean; note: string | null;
+    /** Approval positions that may move a record INTO this stage (lms.workflow_step_group); empty = no position check. */
+    groups: string[] }[];
     allowsCancel: boolean; allowsStop: boolean; lockAt: string | null }>;
   enums: Record<string, string[]>;          // "table.column" -> allowed values
   provinces: { code: string; name: string }[];
