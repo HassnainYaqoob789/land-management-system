@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server';
-import { HttpError, json, protect, readJson, requireRecord, toResponse, type Ctx } from '@/lib/iam/http';
+import { HttpError, protect, readJson, requireRecord, toResponse, type Ctx } from '@/lib/iam/http';
 import { redact } from '@/lib/iam/pii';
 import { paged } from '@/lib/paging';
 import { WORKFLOW_RESOURCE, WORKFLOW_TABLE } from '@/lib/workflow';
+import { landRequestInbox } from './landRequests';
 
 // The approval queue aggregates every module's records, so each section is
 // limited to the workflows whose module the caller may read, in the record's
 // province (UI-09). A user's own notifications are always theirs to see, so
 // the header badge never needs a permission it might not have (UI-13).
+// Land requests have no workflow_assignment rows: their queue items and the
+// requester's notices come from ./landRequests, gated by requests:read and the
+// same position/province rules as the transition route; they are merged into
+// "mine" / "assignments" (so the header bell, which counts mine_total, counts
+// them) and returned as request_alerts.
 
 const readableWorkflows = (ctx: Ctx) => Object.keys(WORKFLOW_RESOURCE).filter((w) => ctx.has(WORKFLOW_RESOURCE[w], 'read'));
 const mayRead = (ctx: Ctx, workflow: string, province: string | null) =>
@@ -28,14 +34,17 @@ export const GET = protect({ authenticatedOnly: true }, async (ctx) => {
       [ctx.user.id, provParam]
     );
 
-    if (!ctx.has('inbox', 'read')) {
-      return json({ assignments: [], assignments_total: 0, mine: [], mine_total: 0, notifications: notificationsRes.rows,
-                    bottlenecks: [], comments: [], user_groups: [] });
-    }
-    const workflows = readableWorkflows(ctx);
-
     // The approval positions this user holds (what the queue is routed by).
     const groups: string[] = (await query(`SELECT coalesce(array_agg(group_code ORDER BY group_code), '{}') AS g FROM lms.app_user_group WHERE user_id = $1`, [ctx.user.id])).rows[0].g;
+    // Land requests waiting on this user, and notices on their own requests (none without requests:read).
+    const lr = await landRequestInbox(ctx, query, provParam, groups);
+
+    if (!ctx.has('inbox', 'read')) {
+      return NextResponse.json(redact({ assignments: lr.open, assignments_total: lr.open_total, mine: lr.mine, mine_total: lr.mine_total,
+                    notifications: notificationsRes.rows, request_alerts: lr.alerts,
+                    bottlenecks: [], comments: [], user_groups: groups }, ctx));
+    }
+    const workflows = readableWorkflows(ctx);
 
     // Open assignments on records this user can see, oldest first. $2 = positions (NULL = all), $3 = readable workflows.
     const base = `SELECT wa.id, wa.workflow_code, wa.record_id, wa.stage_code, wa.assigned_group, wa.assigned_at,
@@ -83,10 +92,13 @@ export const GET = protect({ authenticatedOnly: true }, async (ctx) => {
       ),
     ]);
 
+    // Oldest first across both kinds of item, as the workflow queue already is.
+    const oldest = (a: any, b: any) => new Date(a.assigned_at).getTime() - new Date(b.assigned_at).getTime();
     return NextResponse.json(redact({
-      assignments: visible(all.rows), assignments_total: all.page.total,
-      mine: visible(mine.rows), mine_total: mine.page.total,
+      assignments: [...visible(all.rows), ...lr.open].sort(oldest), assignments_total: all.page.total + lr.open_total,
+      mine: [...visible(mine.rows), ...lr.mine].sort(oldest), mine_total: mine.page.total + lr.mine_total,
       notifications: notificationsRes.rows,
+      request_alerts: lr.alerts,
       bottlenecks: visible(bottlenecksRes.rows),
       comments: visible(commentsRes.rows),
       user_groups: groups,

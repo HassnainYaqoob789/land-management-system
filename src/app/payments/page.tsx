@@ -16,7 +16,7 @@ export default function PaymentsPage() {
 
 type TabKey = 'vouchers' | 'releases' | 'liabilities' | 'holds' | 'reconciliation';
 type Dialog = null | { kind: 'request' } | { kind: 'release' | 'verify'; v: any } | { kind: 'receipt'; r: any } | { kind: 'allocate'; l: any }
-  | { kind: 'hold' } | { kind: 'lift'; h: any } | { kind: 'reconcile' } | { kind: 'reverse'; r: any; confirming: boolean };
+  | { kind: 'hold' } | { kind: 'lift'; h: any } | { kind: 'reconcile' } | { kind: 'reverse'; r: any; confirming: boolean } | { kind: 'cancel'; v: any };
 
 /** A landowner in a picker: name and CNIC exactly as the server sent it (masked without pii:read). */
 const ownerLabel = (l: { full_name?: string; cnic?: string | null }) => `${l.full_name ?? ''}${l.cnic ? ` (${l.cnic})` : ''}`;
@@ -279,6 +279,8 @@ function PaymentsContent() {
                       {v.stage_code === 'Requested' && canHere(['verify'], v.province_code) && <button onClick={() => open({ kind: 'verify', v })}>Verify</button>}
                       {v.stage_code === 'Verified' && canHere(['release'], v.province_code) && <button disabled={v.is_on_hold} title={v.is_on_hold ? 'A hold blocks release' : undefined}
                         onClick={() => open({ kind: 'release', v }, { cheque_date: today() })}>Release cheque</button>}
+                      {['Requested', 'Verified'].includes(v.stage_code) && canHere(['verify', 'release'], v.province_code) &&
+                        <button onClick={() => open({ kind: 'cancel', v })}>Cancel voucher</button>}
                       {v.stage_code === 'Released' && <span className="note mono">{v.cheque_no}</span>}
                     </div></td>
                   </tr>
@@ -550,6 +552,22 @@ function PaymentsContent() {
           <form id="lfForm" onSubmit={(e) => act(e, { action: 'lift_hold', hold_id: dialog.h.id, lift_reason: f('lift_reason') })}>
             <p className="u-mb-10">Hold: {dialog.h.reason}</p>
             <Field label="Why it can be lifted" required htmlFor="lfWhy"><textarea id="lfWhy" required value={f('lift_reason')} onChange={(e) => set('lift_reason')(e.target.value)} /></Field>
+          </form>
+        )}
+      </Modal>
+
+      {/* cancel a voucher */}
+      <Modal open={dialog?.kind === 'cancel'} size="sm" icon="warn" title={`Cancel voucher — ${dialog?.kind === 'cancel' ? dialog.v.code : ''}`} onClose={() => setDialog(null)}
+        footer={<>
+          {formError && <span className="u-danger u-flex-1" role="alert">{formError}</span>}
+          <button type="button" className="btn btn-s" onClick={() => setDialog(null)}>Back</button>
+          <button type="submit" form="cvForm" className="btn btn-d" disabled={busy}>Cancel voucher</button>
+        </>}>
+        {dialog?.kind === 'cancel' && (
+          <form id="cvForm" onSubmit={(e) => act(e, { action: 'cancel', payment_id: dialog.v.id, reason: f('cancel_reason') })}>
+            <p className="u-mb-10">{dialog.v.payee || '—'} · {formatPKR(Number(dialog.v.gross_amount))} gross. A cancelled voucher is never paid; its holds are lifted and a new voucher can be raised (e.g. for the new owner after a mutation).</p>
+            <Field label="Reason" required htmlFor="cvWhy"><textarea id="cvWhy" required minLength={5} value={f('cancel_reason')} onChange={(e) => set('cancel_reason')(e.target.value)}
+              placeholder="e.g. land sold by mutation MUT-0004; raised again for the buyer" /></Field>
           </form>
         )}
       </Modal>

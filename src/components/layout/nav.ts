@@ -70,7 +70,7 @@ export const NAV: [string, NavItem[]][] = [
     { href: '/users', label: 'Users & Roles', icon: 'lock', perm: 'users:read' },
     { href: '/roles', label: 'Roles & Permissions', icon: 'shield', perm: 'roles:read' },
     { href: '/matrix', label: 'Approval Matrix', icon: 'compass', perm: 'settings:read' },
-    { href: '/settings', label: 'Settings', icon: 'gear', perm: 'settings:read', menuPerm: ['settings:update', 'identity_settings:configure'] },
+    { href: '/settings', label: 'Settings', icon: 'gear', perm: 'settings:read', menuPerm: ['settings:update', 'identity_settings:configure', 'identity_settings:read'] },
     { href: '/arch', label: 'Architecture & Security', icon: 'layers', menuPerm: ['users:read', 'roles:read', 'audit_logs:read'] },
     { href: '/account/security', label: 'Account & Security', icon: 'shield' },
   ]],

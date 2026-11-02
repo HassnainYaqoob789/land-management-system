@@ -51,7 +51,9 @@ describe('Payments (0059)', () => {
     } finally { sql(`UPDATE lms.landowner SET status = 'Active' WHERE id = '${ownerId}'`); }
   });
   it('a valid voucher within the award is still accepted', async () => {
-    const r = await (await as('lofield')).post('/api/payments', voucher({ landowner_id: ownerId, gross_amount: 100 }));
+    // A period of its own: an earlier run's voucher for the same owner, head and period is a live duplicate (refused, rightly).
+    const period = new Date(Date.UTC(2020, 0, 1) + Math.floor(Math.random() * 2000) * 86_400_000).toISOString().slice(0, 10);
+    const r = await (await as('lofield')).post('/api/payments', voucher({ landowner_id: ownerId, gross_amount: 100, period_from: period }));
     expect(r.status, JSON.stringify(r.data)).toBeLessThan(300);
   });
   it('the cheque list says whether a release was reversed', () => {

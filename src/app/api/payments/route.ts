@@ -161,6 +161,7 @@ export const POST = protect({ authenticatedOnly: true }, async (ctx) => {
       reconcile: FINANCE,
       hold: FINANCE,
       lift_hold: FINANCE,
+      cancel: FINANCE,
     };
     const options = typeof action === 'string' ? allowed[action] : undefined;
     if (!options) return NextResponse.json({ error: 'Invalid action', code: 'validation' }, { status: 400 });
@@ -170,7 +171,7 @@ export const POST = protect({ authenticatedOnly: true }, async (ctx) => {
       return NextResponse.json({ error: 'You do not have permission to do that.', code: 'forbidden', correlationId: ctx.correlationId }, { status: 403 });
     }
     // Moving or freezing money needs a recent proof of identity (AUTHZ-17).
-    if (action === 'release' || action === 'hold' || action === 'lift_hold') await requireReauth(ctx);
+    if (action === 'release' || action === 'hold' || action === 'lift_hold' || action === 'cancel') await requireReauth(ctx);
 
     if (action === 'release') {
       const { payment_id, cheque_date, note } = body;
@@ -349,6 +350,29 @@ export const POST = protect({ authenticatedOnly: true }, async (ctx) => {
       });
 
       return NextResponse.json({ success: true, hold: holdRow });
+    }
+
+    if (action === 'cancel') {
+      // Finance cancels a voucher that will not be paid (e.g. held after a change of
+      // ownership, 0062): it leaves the live stages, so a corrected voucher can be raised.
+      const { payment_id, reason } = body;
+      const why = typeof reason === 'string' ? reason.trim() : '';
+      if (!payment_id || why.length < 5) return NextResponse.json({ error: 'payment_id and a reason (at least 5 characters) are required', code: 'validation' }, { status: 400 });
+      await withTransaction(async (client) => {
+        const cur = (await requireRecord(ctx, 'payment_request', payment_id, FINANCE, { forUpdate: true })).row;
+        if (!['Requested', 'Verified'].includes(cur.stage_code))
+          throw new HttpError(409, `A ${String(cur.stage_code).toLowerCase()} voucher cannot be cancelled${cur.stage_code === 'Released' ? '; reverse the release instead' : ''}.`, 'state');
+        // Its own holds have nothing left to hold once it is cancelled; they are lifted first
+        // because the database refuses any stage change of a held voucher. Holds on the case,
+        // landowner or project (and court stays) stay and still block. One transaction: if the
+        // cancellation is refused, the lift is undone too.
+        await client.query(
+          `UPDATE lms.payment_hold SET lifted_at = now(), lifted_by = $2, lift_reason = 'Voucher cancelled: ' || $3
+            WHERE scope = 'payment' AND payment_id = $1 AND lifted_at IS NULL AND legal_case_id IS NULL`,
+          [payment_id, user.id, why.slice(0, 900)]);
+        await client.query(`SELECT api.advance_workflow('payments', $1, 'Cancelled', $2)`, [payment_id, why.slice(0, 1000)]);
+      });
+      return NextResponse.json({ success: true, message: 'Voucher cancelled' });
     }
 
     if (action === 'lift_hold') {

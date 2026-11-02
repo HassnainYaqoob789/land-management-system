@@ -4,7 +4,12 @@ import { toDecimal } from '@/lib/reporting/decimal';
 
 // Units of measure and the administrative hierarchy (reference data).
 // Reading is open to every signed-in user (survey, project and DBPFC forms use
-// it). Changing the hierarchy needs settings:update (UI-01, AUTHZ-06, DSP-16).
+// it). Changing the hierarchy, a province's unit list or a province's unit
+// size needs settings:update (UI-01, AUTHZ-06, DSP-16; client requirement of
+// 2 Nov 2026: province-specific units, sizes set in Settings).
+// A province's own size for a local unit (lms.province_unit_factor, 0060)
+// overrides the national factor for parcels recorded in that province from
+// then on; a recorded parcel keeps the factor it was recorded with.
 // Every factor comes from lms.unit_conversion, the one source: the factor in
 // force whatever its source, with whether the Land Department has confirmed
 // it; where a unit applies comes from lms.province_unit (UOM-05/06, RPT-12).
@@ -37,10 +42,16 @@ export const GET = protect({ authenticatedOnly: true }, async (ctx) => {
   const levels = (await ctx.client.query(`SELECT *, depth AS level_no, name AS level_name FROM lms.province_level ORDER BY province_code ASC, depth ASC`)).rows;
   const provinceUnits = (await ctx.client.query(
     `SELECT province_code, unit_code, display_order, source, confirmed, note FROM lms.province_unit ORDER BY province_code, display_order`)).rows;
+  const provinceFactors = (await ctx.client.query(
+    `SELECT f.province_code::text AS province_code, f.unit_code, f.sqm_per_unit, f.is_confirmed, f.note, f.valid_from,
+            (SELECT a.sqm_per_unit FROM lms.unit_conversion a WHERE a.unit_code = 'Acre' AND a.valid_range @> CURRENT_DATE) / f.sqm_per_unit AS units_per_acre,
+            lms.user_full_name(f.created_by) AS set_by
+       FROM lms.province_unit_factor f WHERE f.valid_range @> CURRENT_DATE ORDER BY f.province_code, f.unit_code`)).rows;
   const reportUnits = (await ctx.client.query(
     `SELECT province_code::text AS province, land_class AS "landClass", unit_code AS unit, approved, note FROM lms.report_unit_default ORDER BY province_code, land_class NULLS FIRST`)).rows;
   return json({
     units, admin_units: adminUnits, province_levels: levels, province_units: provinceUnits, report_units: reportUnits,
+    province_factors: provinceFactors,
     canonical_base: 'Square Meter (m²)',
     authority: 'lms.unit_conversion — the factor in force for each unit; Jireb and Bigha are provisional until the Land Department confirms them',
     can: { manageUnits: ctx.has('settings', 'update') },
@@ -86,7 +97,47 @@ export const POST = protect({ authenticatedOnly: true }, async (ctx) => {
       if (!r.rowCount) throw new HttpError(404, 'Administrative unit not found.', 'not_found');
       return json({ success: true, admin_unit: { ...r.rows[0], level_no: r.rows[0].level } });
     }
+    if (body.action === 'set_province_factor' || body.action === 'clear_province_factor') {
+      await requireManage(ctx);
+      const province = String(body.province_code ?? '');
+      if (!PROVINCE.test(province)) throw new HttpError(400, 'province_code must be a province code.', 'validation');
+      const unit = String(body.unit_code ?? '').slice(0, 40);
+      if (!unit) throw new HttpError(400, 'unit_code is required.', 'validation');
+      if (body.action === 'clear_province_factor') {
+        const r = await ctx.client.query('SELECT api.clear_province_unit_factor($1, $2) AS cleared', [province, unit]);
+        return json({ success: true, cleared: r.rows[0].cleared });
+      }
+      const perAcre = toDecimal(body.units_per_acre, 6);
+      if (perAcre === null || !(Number(perAcre) > 0)) throw new HttpError(400, 'Units per acre must be a positive number.', 'validation');
+      const note = typeof body.note === 'string' ? body.note.slice(0, 300) : null;
+      const r = await ctx.client.query('SELECT api.set_province_unit_factor($1, $2, $3::numeric, $4, $5) AS id',
+        [province, unit, perAcre, body.confirmed === true, note]);
+      return json({ success: true, id: r.rows[0].id });
+    }
+    if (body.action === 'set_province_units') {
+      // The units a province's forms offer first, in order. Acre stays in every list.
+      await requireManage(ctx);
+      const province = String(body.province_code ?? '');
+      if (!PROVINCE.test(province)) throw new HttpError(400, 'province_code must be a province code.', 'validation');
+      if (!Array.isArray(body.units) || !body.units.length || body.units.length > 15)
+        throw new HttpError(400, 'units must list 1 to 15 unit codes.', 'validation');
+      const units = [...new Set((body.units as unknown[]).map((u) => String(u).slice(0, 40)))];
+      if (!units.includes('Acre')) units.unshift('Acre');
+      const known = (await ctx.client.query('SELECT code FROM lms.measurement_unit WHERE code = ANY($1::text[]) AND is_area', [units])).rows.map((x) => x.code);
+      const unknown = units.filter((u) => !known.includes(u));
+      if (unknown.length) throw new HttpError(400, `Unknown area unit: ${unknown.join(', ')}.`, 'validation');
+      await ctx.client.query('DELETE FROM lms.province_unit WHERE province_code = $1 AND NOT (unit_code = ANY($2::text[]))', [province, units]);
+      for (const [i, u] of units.entries())
+        await ctx.client.query(
+          `INSERT INTO lms.province_unit (province_code, unit_code, display_order, source, confirmed, note)
+           VALUES ($1, $2, $3, 'settings', true, 'Set in Settings')
+           ON CONFLICT (province_code, unit_code) DO UPDATE SET display_order = EXCLUDED.display_order, confirmed = true`,
+          [province, u, i + 1]);
+      return json({ success: true, units });
+    }
     if (body.action !== undefined && body.action !== 'convert') throw new HttpError(400, 'Unknown action.', 'validation');
+    // A conversion for one province uses that province's own sizes.
+    const inProvince = typeof body.province_code === 'string' && PROVINCE.test(body.province_code) ? body.province_code : null;
 
     // Conversion: exact, from lms.unit_conversion, with whether the factor is confirmed.
     const value = toDecimal(body.value, 6);
@@ -98,15 +149,15 @@ export const POST = protect({ authenticatedOnly: true }, async (ctx) => {
       if (!from || !targets.length) throw new HttpError(400, 'from_unit and to_units are required.', 'validation');
       const rows = (await ctx.client.query(
         `SELECT t AS asked, d.to_unit, round(d.value, 6) AS converted_value, d.value AS exact_value, (d.confirmed IS FALSE) AS provisional
-           FROM unnest($3::text[]) t CROSS JOIN LATERAL lms.uom_convert_detail($1::numeric, $2, t) d`, [value, from, targets])).rows;
+           FROM unnest($3::text[]) t CROSS JOIN LATERAL lms.uom_convert_detail_in($1::numeric, $2, t, CURRENT_DATE, $4) d`, [value, from, targets, inProvince])).rows;
       return json({ success: true, original_value: value, original_unit: from, conversions: rows });
     }
     const to = String(body.to_unit ?? body.toUnit ?? '').slice(0, 40);
     if (!from || !to) throw new HttpError(400, 'from_unit and to_unit are required.', 'validation');
     const r = (await ctx.client.query(
       `SELECT d.value, d.from_unit, d.to_unit, d.confirmed, round(d.value, 6) AS rounded,
-              (SELECT value FROM lms.uom_convert_detail($1::numeric, $2, 'Square Meter')) AS sqm
-         FROM lms.uom_convert_detail($1::numeric, $2, $3) d`, [value, from, to])).rows[0];
+              (SELECT value FROM lms.uom_convert_detail_in($1::numeric, $2, 'Square Meter', CURRENT_DATE, $4)) AS sqm
+         FROM lms.uom_convert_detail_in($1::numeric, $2, $3, CURRENT_DATE, $4) d`, [value, from, to, inProvince])).rows[0];
     if (!r || r.value === null) throw new HttpError(400, `There is no conversion factor for ${r?.from_unit ? to : from}.`, 'validation');
     return json({
       success: true,

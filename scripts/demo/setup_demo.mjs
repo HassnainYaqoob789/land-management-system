@@ -42,6 +42,7 @@ if (existsSync('db/seeds/reporting_fixture.sql')) {
 // Exploration land-request flow (migration 0057): planner, Director Operations,
 // Regional Manager and DM / TL Land Affairs accounts.
 sh('psql', ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-U', 'lms_migrator', '-d', DB, '-f', 'db/seed/seed_exploration_accounts.sql']);
+sh('psql', ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-U', 'lms_migrator', '-d', DB, '-f', 'db/seed/seed_director_account.sql']);
 
 // Demo convenience: no authenticator enrolment on first sign-in. This changes
 // the demo database only; every other environment keeps the MFA policy.
@@ -62,6 +63,7 @@ const SEES = {
   viewer: 'Read-only dashboards and registers',
   'exploration-planner': 'Draws the land it needs on the GIS map and raises land requests; no landowner data or approvals',
   'land-request-reviewer': 'Decides its tier of land requests (Director Operations / Regional Manager) on the map',
+  'demo-director': 'Every tab, read-only (opening walkthrough); changes nothing, CNICs masked',
 };
 const users = sql(`SELECT u.username, u.full_name, coalesce(u.position,''),
                           coalesce((SELECT string_agg(r.code, ',' ORDER BY r.code) FROM iam.user_role ur JOIN iam.role r ON r.id = ur.role_id

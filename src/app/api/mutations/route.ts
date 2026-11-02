@@ -30,7 +30,7 @@ export const GET = protect({ permission: ['mutations', 'read'] }, async (ctx) =>
         return NextResponse.json({ error: 'Mutation not found' }, { status: 404 });
       }
 
-      const [surveysRes, heirsRes, historyRes, transitionsRes] = await Promise.all([
+      const [surveysRes, heirsRes, historyRes, transitionsRes, repointRes] = await Promise.all([
         query(
           `SELECT ms.*, s.code as survey_code, s.survey_no, s.total_area, so.location_path
            FROM lms.mutation_survey ms
@@ -63,6 +63,18 @@ export const GET = protect({ permission: ['mutations', 'read'] }, async (ctx) =>
            ORDER BY wt.acted_at ASC`,
           [id]
         ),
+        // Open compensation and lease rent moved to the heirs / buyers when the
+        // mutation was applied (migration 0061). Province-scoped by RLS.
+        query(
+          `SELECT r.id, r.kind, r.record_id, r.record_code,
+                  r.from_landowner_id, r.from_code, r.from_name,
+                  r.to_landowner_id, r.to_code, r.to_name,
+                  r.share_moved, r.share_kept, r.paid_amount, r.note, r.created_at, r.created_by_name
+           FROM api.v_mutation_repoint r
+           WHERE r.mutation_id = $1
+           ORDER BY r.kind, r.record_code, r.created_at`,
+          [id]
+        ),
       ]);
 
       return NextResponse.json(redact({
@@ -71,6 +83,7 @@ export const GET = protect({ permission: ['mutations', 'read'] }, async (ctx) =>
         heirs: heirsRes.rows,
         ownership_history: historyRes.rows,
         transitions: transitionsRes.rows,
+        repointed: repointRes.rows,
       }, ctx));
     }
 

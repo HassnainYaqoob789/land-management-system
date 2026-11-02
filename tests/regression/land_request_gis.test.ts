@@ -226,3 +226,61 @@ describe('Audit fixes 2026-10-31', () => {
     expect(sql(`SELECT status_code FROM lms.survey WHERE id = '${parcel.id}'`)).toBe('Proposed');
   });
 });
+
+describe('Land ready: the request follows its land work and closes (0060)', () => {
+  const approve3 = async (id: string) => {
+    for (const u of ['dirops', 'regmgr', 'landaffairs'])
+      expect((await step(u, id, 'APPROVE', 'ok')).status).toBe(200);
+  };
+  it('an acquisition request completes when its acquisition reaches Handover; the planner sees each stage', async () => {
+    const r = await post('explorer', '/api/requests', { project_id: sindhProject, purpose: 'Gathering Station', justification: 'land ready check',
+      required_date: '2027-04-01', corners: square(parcel.lng, parcel.lat, 0.0008) });
+    expect(r.status, JSON.stringify(r.data)).toBe(201);
+    const id = r.data.request.id;
+    sql(`UPDATE lms.survey SET status_code = 'Proposed' WHERE id = '${parcel.id}'`);
+    await approve3(id);
+    expect((await step('lofield', id, 'HANDOVER', 'buy it', { handover_kind: 'Acquisition' })).status).toBe(200);
+    // Not by hand: it completes with its acquisition.
+    expect((await step('lofield', id, 'COMPLETE', 'done?')).status).toBe(409);
+
+    const items = sql(`SELECT string_agg(code, ',') FROM lms.title_check_item`).split(',');
+    const a = await post('lofield', '/api/acquisitions', { project_id: sindhProject, mode: 'Direct Purchase', area_required: 5,
+      survey_ids: [parcel.id], checked_items: items, land_request_id: id });
+    expect(a.status, JSON.stringify(a.data)).toBe(200);
+    const acq = a.data.acquisition;
+    let d = await get('explorer', `/api/requests?id=${id}`);
+    expect(d.data.request.work_stage).toBe('Identification');
+    expect(d.data.work.stages.map((s: any) => s.code)).toContain('Handover');
+    expect(d.data.work.acquisition).toBeNull();   // the planner has no access to the acquisition register
+
+    for (const [u, to] of [['nego', 'Negotiation'], ['dmfield', 'Approval'], ['mland', 'Acquisition / Lease'], ['sradmin', 'Handover']] as const) {
+      pw[u] ??= PW[u];
+      const t = await (await as(u)).req('PUT', '/api/acquisitions', { id: acq.id, action: 'transition', to_stage: to, note: `t ${to}` });
+      expect(t.status, `${u} → ${to}: ${JSON.stringify(t.data)}`).toBe(200);
+      d = await get('explorer', `/api/requests?id=${id}`);
+      expect(d.data.request.work_stage).toBe(to);
+    }
+    expect(d.data.request.stage_code).toBe('Completed');
+    expect(d.data.request.completed_comment).toContain(acq.code);
+    expect(sql(`SELECT status_code FROM lms.survey WHERE id = '${parcel.id}'`)).toBe('Acquired');
+    const lo = await get('lofield', `/api/requests?id=${id}`);
+    expect(lo.data.work.acquisition.code).toBe(acq.code);   // a reader of acquisitions sees its details
+    const inbox = await get('explorer', '/api/inbox');
+    expect(inbox.status).toBe(200);
+    expect(JSON.stringify(inbox.data)).toContain(r.data.request.code);
+  });
+  it('a lease request is marked land ready by the Land Officer only, once', async () => {
+    const r = await post('lofield', '/api/requests', { project_id: sindhProject, purpose: 'Camp', justification: 'lease ready',
+      required_date: '2027-04-01', corners: square(parcel.lng + 0.02, parcel.lat + 0.02, 0.0005) });
+    const id = r.data.request.id;
+    await approve3(id);
+    expect((await step('lofield', id, 'HANDOVER', 'lease it', { handover_kind: 'Lease' })).status).toBe(200);
+    expect((await step('dirops', id, 'COMPLETE', 'not mine')).status).toBe(403);
+    expect((await step('lofield', id, 'COMPLETE', '')).status).toBe(400);   // a comment is required
+    const c = await step('lofield', id, 'COMPLETE', 'lease signed, possession taken', { record_code: 'LSE-TEST-1' });
+    expect(c.status, JSON.stringify(c.data)).toBe(200);
+    expect(c.data.request.stage_code).toBe('Completed');
+    expect(c.data.request.handed_over_record_code).toBe('LSE-TEST-1');
+    expect((await step('lofield', id, 'COMPLETE', 'again')).status).toBe(409);
+  });
+});

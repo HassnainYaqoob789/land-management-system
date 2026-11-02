@@ -25,6 +25,40 @@ async function recordedArea(client: PoolClient, body: Record<string, any>): Prom
   return { area, unit: r.rows[0].code };
 }
 
+/**
+ * One khasra / survey no. (and block) per deh: the database enforces it
+ * (survey_revenue_key_uq on admin_unit_id, lower(survey_no), lower(block_no)).
+ * This finds the existing parcel first, so the user is told which one it is
+ * instead of a bare "already exists". Row-level security applies; the deh is in
+ * the caller's province (requireLinked / requireRecord), so the answer names
+ * only a parcel the caller may see.
+ */
+async function refuseDuplicateKhasra(client: PoolClient, adminUnitId: unknown, surveyNo: unknown, blockNo: unknown, excludeId: string | null) {
+  if (typeof adminUnitId !== 'string' || typeof surveyNo !== 'string' || !surveyNo.trim()) return;
+  const block = typeof blockNo === 'string' && blockNo.trim() ? blockNo.trim() : null;
+  const r = await client.query(
+    `SELECT s.code::text AS code, au.name AS deh
+       FROM lms.survey s JOIN lms.admin_unit au ON au.id = s.admin_unit_id
+      WHERE s.admin_unit_id = $1 AND lower(s.survey_no) = lower($2)
+        AND coalesce(lower(s.block_no), '') = coalesce(lower($3), '')
+        AND ($4::uuid IS NULL OR s.id <> $4::uuid)
+      LIMIT 1`, [adminUnitId, surveyNo.trim(), block, excludeId]);
+  const hit = r.rows[0];
+  if (hit) throw new HttpError(409, khasraText(surveyNo.trim(), block, hit.deh, hit.code), 'conflict');
+}
+
+function khasraText(no: string, block: string | null, deh: string | null, code: string | null): string {
+  const what = `Khasra / survey no. ${no}${block ? ` (block ${block})` : ''}`;
+  return `${what} already exists${deh ? ` in ${deh}` : ' in this deh / mouza'}${code ? ` as ${code}` : ''}. Open that parcel instead of adding it again.`;
+}
+
+/** The unique-index refusal (e.g. a parcel saved at the same moment), in words. */
+function khasraConflict(error: any): any {
+  if (error?.code === '23505' && error?.constraint === 'survey_revenue_key_uq')
+    return new HttpError(409, 'This khasra / survey no. (and block) already exists in this deh / mouza. Search the parcel register and open it instead of adding it again.', 'conflict');
+  return error;
+}
+
 /** Shares must name landowners with positive shares totalling exactly 100%. */
 function checkShares(shares: unknown): any[] | null {
   if (shares === undefined || shares === null) return null;
@@ -163,6 +197,7 @@ export const POST = protect({ permission: ['surveys', 'create'] }, async (ctx) =
       await requireLinked(ctx, 'admin_unit', [admin_unit_id], province_code, 'administrative unit');
       if (project_id) await requireLinked(ctx, 'project', [project_id], province_code, 'project');
       const area = await recordedArea(client, body);
+      await refuseDuplicateKhasra(client, admin_unit_id, survey_no, block_no, null);
 
       const codeRes = await client.query("SELECT lms.next_code('AREA-') as code");
       const sCode = codeRes.rows[0].code;
@@ -208,7 +243,7 @@ export const POST = protect({ permission: ['surveys', 'create'] }, async (ctx) =
     return NextResponse.json({ success: true, survey: created });
   } catch (error: any) {
     console.error('Survey create error:', error);
-    return toResponse(error, ctx.correlationId);
+    return toResponse(khasraConflict(error), ctx.correlationId);
   }
 });
 
@@ -229,6 +264,12 @@ export const PUT = protect({ permission: ['surveys', 'update'] }, async (ctx) =>
     await withTransaction(async (client) => {
       const rec = await requireRecord(ctx, 'survey', targetId, ['surveys', 'update'], { forUpdate: true });
       const area = await recordedArea(client, body);
+      // The khasra / survey no. and block it will have after this change (as the UPDATE below computes them).
+      const key = (v: unknown) => (typeof v === 'string' ? v.trim().toLowerCase() : '');
+      const nextNo = typeof survey_no === 'string' && survey_no.trim() ? survey_no : rec.row.survey_no;
+      const nextBlock = typeof block_no === 'string' && block_no.trim() ? block_no : rec.row.block_no;
+      if (key(nextNo) !== key(rec.row.survey_no) || key(nextBlock) !== key(rec.row.block_no))
+        await refuseDuplicateKhasra(client, rec.row.admin_unit_id, nextNo, nextBlock, rec.id);
 
       if (survey_no || block_no !== undefined || khasra_type !== undefined || area || land_class || status_code || lat !== undefined || lng !== undefined || remarks !== undefined) {
         await client.query(
@@ -284,6 +325,6 @@ export const PUT = protect({ permission: ['surveys', 'update'] }, async (ctx) =>
     return NextResponse.json({ success: true, message: 'Survey record updated' });
   } catch (error: any) {
     console.error('Survey update error:', error);
-    return toResponse(error, ctx.correlationId);
+    return toResponse(khasraConflict(error), ctx.correlationId);
   }
 });

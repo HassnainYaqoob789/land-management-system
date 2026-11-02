@@ -21,6 +21,11 @@ const EMPTY = { province_code: '', full_name: '', father_name: '', cnic: '', own
 // form shows them read-only, exactly as returned, and never sends them back.
 const PII = ['cnic', 'phone', 'iban', 'address'] as const;
 
+/** GET /api/landowners?check_duplicate=1 — a registered person (CNIC masked without pii:read). */
+interface DupMatch { id: string; code: string; full_name: string; father_name: string | null; province_code: string; status: string; cnic?: string; district?: string | null }
+/** `cnic_match` is `{ registered: true }` alone when the caller may not see who it is. */
+interface DupResult { cnic: string; cnic_match: (DupMatch & { registered?: never }) | { registered: true } | null; name_matches: DupMatch[] }
+
 /** How to read the statement; shown on screen and on the print. */
 const STATEMENT_NOTE = 'Shows compensation on cases approved at Head Office and cheques already released. '
   + 'Payment amounts are gross (cheque + withholding tax; the description gives both). '
@@ -45,6 +50,40 @@ function statementHtml(owner: any, rows: any[], withPayments: boolean): string {
       <td>${e(r.reference)}</td><td>${e(r.description)}</td><td class="r">${rs(r.amount)}</td>${withPayments ? `<td class="r">${rs(r.running_total)}</td>` : ''}</tr>`).join('')
       : `<tr><td colspan="${head.length}">No transactions for this landowner.</td></tr>`}</table>`,
   ].join('');
+}
+
+/** Shown in the Add Landowner form: an exact CNIC match blocks saving; similar names only warn. */
+function DuplicateWarning({ dup, blocked, onOpen }: { dup: DupResult; blocked: boolean; onOpen: (m: DupMatch) => void }) {
+  const exact = dup.cnic_match;
+  const names = dup.name_matches;
+  if (!exact && !names.length) return null;
+  const who = (m: DupMatch) => <><span className="code">{m.code}</span> <b>{m.full_name}</b>{m.father_name ? <> s/o {m.father_name}</> : null}</>;
+  return (
+    <div className="fg full">
+      {exact && (
+        <div className={`al ${blocked ? 'd' : 'w'}`} role="alert"><span className="i" /><div className="tx">
+          {'code' in exact
+            ? <><b>This CNIC is already registered as {exact.code} — {exact.full_name}{exact.father_name ? ` s/o ${exact.father_name}` : ''} ({exact.province_code}).</b>
+                <small>One person has one record, however many parcels they hold. Open it instead of adding a second one.{' '}
+                  <button type="button" className="btn btn-s btn-sm" onClick={() => onOpen(exact)}>Open {exact.code}</button></small></>
+            : <><b>This CNIC is already registered.</b><small>One person has one record. Ask an officer of that province to open it.</small></>}
+          {!blocked && <small>The CNIC has been changed since; check it again by leaving the CNIC box.</small>}
+        </div></div>
+      )}
+      {names.length > 0 && (
+        <div className="al w" role="status"><span className="i" /><div className="tx">
+          <b>{names.length === 1 ? 'A person' : `${names.length} people`} with a very similar name and father / husband name {names.length === 1 ? 'is' : 'are'} already registered in this province.</b>
+          <small>If it is the same person, open the existing record instead. Different people can share a name: save only if the CNIC differs.</small>
+          <ul className="u-mt-6">
+            {names.map((m) => (
+              <li key={m.id}>{who(m)} · CNIC <span className="mono">{m.cnic || '—'}</span> · {m.district || 'no parcels yet'}{' '}
+                <button type="button" className="btn btn-s btn-sm" onClick={() => onOpen(m)}>Open</button></li>
+            ))}
+          </ul>
+        </div></div>
+      )}
+    </div>
+  );
 }
 
 function LandownersContent() {
@@ -79,8 +118,38 @@ function LandownersContent() {
   const cnicBad = piiEditable && form.cnic !== '' && !isValidCNIC(form.cnic);
   const ibanBad = piiEditable && form.iban !== '' && !/^PK\d{2}[A-Z]{4}[0-9A-Z]{16}$/.test(form.iban.replace(/\s/g, '').toUpperCase());
 
+  // Duplicate-person check while adding (one CNIC is one person, who may hold many parcels).
+  // The server answers for the CNIC and name as typed; an exact CNIC match blocks saving
+  // only while the CNIC in the form is still the one that matched.
+  const [dup, setDup] = useState<null | DupResult>(null);
+  const dupSeq = useRef(0);
+  const dupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resetDup = () => { dupSeq.current++; if (dupTimer.current) clearTimeout(dupTimer.current); setDup(null); };
+  const checkDuplicate = (f: typeof EMPTY) => {
+    if (mode !== 'new') return;
+    if (dupTimer.current) clearTimeout(dupTimer.current);
+    dupTimer.current = setTimeout(async () => {
+      const cnic = isValidCNIC(f.cnic) ? f.cnic : '';
+      const name = f.full_name.trim();
+      if (!cnic && (name.length < 3 || !f.province_code)) { setDup(null); return; }
+      const seq = ++dupSeq.current;
+      const qs = new URLSearchParams({ check_duplicate: '1', cnic, name, father_name: f.father_name.trim(), province: f.province_code });
+      try {
+        const res = await fetch(`/api/landowners?${qs}`, { headers: { Accept: 'application/json' } });
+        const d = await res.json().catch(() => ({}));
+        if (seq !== dupSeq.current || !res.ok) return;   // the check only warns; saving still enforces the CNIC rule
+        setDup({ cnic, cnic_match: d.cnic_match ?? null, name_matches: d.name_matches ?? [] });
+      } catch { /* a failed check never blocks entry */ }
+    }, 300);
+  };
+  const dupBlocked = mode === 'new' && !!dup?.cnic_match && dup.cnic !== '' && dup.cnic === form.cnic;
+  const openExisting = (m: DupMatch) => {
+    setMode(null); resetDup(); lq.setQ(m.code);
+    if (canIn('landowners:update', m.province_code)) openEdit(m);
+  };
+
   const save = async (e: React.FormEvent) => {
-    e.preventDefault(); if (cnicBad || ibanBad || (mode === 'edit' && editLoading)) return; setBusy(true); setFormError(null);
+    e.preventDefault(); if (cnicBad || ibanBad || dupBlocked || (mode === 'edit' && editLoading)) return; setBusy(true); setFormError(null);
     const body = { full_name: form.full_name, father_name: form.father_name, owner_type: form.owner_type, tax_status: form.tax_status,
       bank_branch: form.bank_branch || undefined,
       ...(piiEditable ? { cnic: form.cnic, phone: form.phone || undefined, iban: form.iban ? form.iban.replace(/\s/g, '').toUpperCase() : undefined,
@@ -144,7 +213,7 @@ function LandownersContent() {
       <Card icon="user" title="Landowners" sub="CNIC is the unique identity · FBR filer status is recorded · deceased owners are locked until succession is recorded">
         <LoadError {...list} what="the landowner register" />
         {can('landowners:create') && (
-          <div className="bar"><button className="btn btn-p" onClick={() => { editSeq.current++; setFormError(null); setEditing(null); setEditLoading(false); setMasked({}); setForm({ ...EMPTY, province_code: activeProvince !== 'ALL' ? activeProvince : '' }); setMode('new'); }}>+ Add Landowner</button></div>
+          <div className="bar"><button className="btn btn-p" onClick={() => { editSeq.current++; setFormError(null); setEditing(null); setEditLoading(false); setMasked({}); resetDup(); setForm({ ...EMPTY, province_code: activeProvince !== 'ALL' ? activeProvince : '' }); setMode('new'); }}>+ Add Landowner</button></div>
         )}
         <Toolbar>
           <SearchBox value={lq.q} onChange={lq.setQ} placeholder="Search name, father name, CNIC or bank branch…" />
@@ -208,16 +277,18 @@ function LandownersContent() {
         footer={<>
           {formError && <span className="u-danger u-flex-1" role="alert">{formError}</span>}
           <button type="button" className="btn btn-s" onClick={() => setMode(null)}>Cancel</button>
-          <button type="submit" form="loForm" className="btn btn-p" disabled={busy || cnicBad || ibanBad || (mode === 'edit' && editLoading)}>{busy ? 'Saving…' : 'Save'}</button>
+          <button type="submit" form="loForm" className="btn btn-p" disabled={busy || cnicBad || ibanBad || dupBlocked || (mode === 'edit' && editLoading)}
+            title={dupBlocked ? 'This CNIC is already registered: open the existing record instead.' : undefined}>{busy ? 'Saving…' : 'Save'}</button>
         </>}>
         <form id="loForm" onSubmit={save} className="fgrid">
-          {mode === 'new' && <Field label="Province" required htmlFor="loProv"><ProvinceSelect id="loProv" required value={form.province_code} onChange={set('province_code')} /></Field>}
+          {mode === 'new' && <Field label="Province" required htmlFor="loProv"><ProvinceSelect id="loProv" required value={form.province_code} onChange={(v) => { set('province_code')(v); checkDuplicate({ ...form, province_code: v }); }} /></Field>}
           {mode === 'edit' && editLoading && !formError && <div className="fg full"><Loading what="landowner" /></div>}
+          {mode === 'new' && dup && <DuplicateWarning dup={dup} blocked={dupBlocked} onOpen={openExisting} />}
           {piiField('cnic', 'CNIC', 'loCnic',
-            <input id="loCnic" required inputMode="numeric" autoComplete="off" maxLength={15} placeholder="12345-1234567-1" className={`mono${cnicBad ? ' err' : ''}`} aria-invalid={cnicBad} value={form.cnic} onChange={(e) => set('cnic')(formatCNICInput(e.target.value))} />,
+            <input id="loCnic" required inputMode="numeric" autoComplete="off" maxLength={15} placeholder="12345-1234567-1" className={`mono${cnicBad ? ' err' : ''}`} aria-invalid={cnicBad} value={form.cnic} onChange={(e) => set('cnic')(formatCNICInput(e.target.value))} onBlur={() => checkDuplicate(form)} />,
             cnicBad ? <span className="u-danger">Format XXXXX-XXXXXXX-X</span> : 'Format XXXXX-XXXXXXX-X')}
-          <Field label="Full name (as on CNIC)" required htmlFor="loName"><input id="loName" required value={form.full_name} onChange={(e) => set('full_name')(e.target.value)} /></Field>
-          <Field label="Father / husband name" required htmlFor="loFather"><input id="loFather" required value={form.father_name} onChange={(e) => set('father_name')(e.target.value)} /></Field>
+          <Field label="Full name (as on CNIC)" required htmlFor="loName"><input id="loName" required value={form.full_name} onChange={(e) => set('full_name')(e.target.value)} onBlur={() => checkDuplicate(form)} /></Field>
+          <Field label="Father / husband name" required htmlFor="loFather"><input id="loFather" required value={form.father_name} onChange={(e) => set('father_name')(e.target.value)} onBlur={() => checkDuplicate(form)} /></Field>
           <Field label="Owner type" required htmlFor="loType">
             <select id="loType" required value={form.owner_type} onChange={(e) => set('owner_type')(e.target.value)}>
               {enumOf(ref, 'landowner.owner_type').map((v) => <option key={v} value={v}>{OWNER_TYPE[v] ?? v}</option>)}

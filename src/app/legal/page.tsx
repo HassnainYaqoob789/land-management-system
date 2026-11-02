@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Shell, { useLMS } from '@/components/layout/Shell';
 import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager } from '@/components/legacy/ui';
-import { useList, RefSelect, ProvinceSelect, useListQuery } from '@/components/legacy/data';
+import { useList, RefSelect, ProvinceSelect, useListQuery, RecordPicker } from '@/components/legacy/data';
 import { send, useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
 import { useCan, useCanIn } from '@/lib/client/permissions';
@@ -38,13 +38,19 @@ function LegalContent() {
     try { await fn(); done(); } catch (err: any) { setFormError(err.message); } finally { setBusy(false); }
   };
 
+  // The parcels and landowners the case concerns: a stay order holds exactly these (their vouchers cannot be released).
+  const [links, setLinks] = useState<{ surveys: Record<string, string>; owners: Record<string, string> }>({ surveys: {}, owners: {} });
   const create = (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.stay_order && !Object.keys(links.surveys).length && !Object.keys(links.owners).length) {
+      setFormError('A stay order holds payments on the parcels and landowners it concerns: add at least one.');
+      return;
+    }
     run(() => send('POST', '/api/legal', {
-      ...form, project_id: form.project_id || undefined, filing_date: form.filing_date, next_hearing: form.next_hearing || undefined,
+      ...form, survey_ids: Object.keys(links.surveys), landowner_ids: Object.keys(links.owners), project_id: form.project_id || undefined, filing_date: form.filing_date, next_hearing: form.next_hearing || undefined,
       financial_exposure: form.financial_exposure ? Number(form.financial_exposure) : undefined, case_type: form.case_type,
       counsel: form.counsel || undefined, remarks: form.remarks || undefined,
-    }), () => { setOpen(false); setForm({ ...EMPTY }); });
+    }, { also: ['/api/payments'] }), () => { setOpen(false); setForm({ ...EMPTY }); setLinks({ surveys: {}, owners: {} }); });
   };
   const addHearing = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +101,8 @@ function LegalContent() {
                 <td>{c.court}{c.case_type && <><br /><small className="note">{c.case_type}</small></>}</td>
                 <td>{c.parties}</td>
                 <td>{c.company_role}</td>
-                <td>{c.project_name || <span className="note">—</span>}</td>
+                <td>{c.project_name || <span className="note">—</span>}
+                  {(c.survey_numbers || c.landowner_names) && <><br /><small className="note">{[c.survey_numbers && `Survey ${c.survey_numbers}`, c.landowner_names].filter(Boolean).join(' · ')}</small></>}</td>
                 <td>{fmtDate(c.next_hearing)}<br /><small className="note">{fmtNum(c.hearing_count)} hearing(s)</small></td>
                 <td className="num">{c.financial_exposure != null ? fmtNum(c.financial_exposure) : '—'}</td>
                 <td>{c.stay_order ? <span className="b b-d">Stay order</span> : <span className="note">—</span>}</td>
@@ -184,6 +191,33 @@ function LegalContent() {
           <Field label="Next hearing" htmlFor="lgNext"><input id="lgNext" type="date" value={form.next_hearing} onChange={(e) => setForm((f) => ({ ...f, next_hearing: e.target.value }))} /></Field>
           <Field label="Counsel" htmlFor="lgCounsel"><input id="lgCounsel" value={form.counsel} onChange={(e) => setForm((f) => ({ ...f, counsel: e.target.value }))} /></Field>
           <Field label="Financial exposure (Rs)" htmlFor="lgExp"><input id="lgExp" type="number" min="0" step="1" value={form.financial_exposure} onChange={(e) => setForm((f) => ({ ...f, financial_exposure: e.target.value }))} /></Field>
+          <Field label="Parcels concerned" full htmlFor="lgSurv" hint="Search and add each khasra / survey the case is about">
+            <RecordPicker id="lgSurv" resource="/api/surveys" rowsKey="surveys" label="Parcel to add" value=""
+              filters={{ province: form.province_code || undefined }} idOf={(r) => r.survey_id} optionLabel={(r) => `${r.survey_code} · Survey ${r.survey_no}`}
+              onChange={(id, r) => { if (!id) return; setLinks((l) => ({ ...l, surveys: { ...l.surveys, [id]: r ? `${r.survey_code} · Survey ${r.survey_no}` : id } })); }} />
+            <div className="u-mt-8">
+              {!Object.keys(links.surveys).length && <span className="note">No parcel chosen.</span>}
+              {Object.entries(links.surveys).map(([id, label]) => (
+                <span key={id} className="pill u-chip">{label}{' '}
+                  <button type="button" className="bx" aria-label={`Remove ${label}`}
+                    onClick={() => setLinks((l) => { const s2 = { ...l.surveys }; delete s2[id]; return { ...l, surveys: s2 }; })}>&times;</button></span>
+              ))}
+            </div>
+          </Field>
+          <Field label="Landowners concerned" full htmlFor="lgOwn" hint="The claimants or owners whose payments the case affects">
+            <RecordPicker id="lgOwn" resource="/api/landowners" rowsKey="landowners" label="Landowner to add" value=""
+              filters={{ province: form.province_code || undefined }} idOf={(l) => l.id}
+              optionLabel={(l) => `${l.full_name ?? ''}${l.cnic ? ` (${l.cnic})` : ''}`}
+              onChange={(id, l) => { if (!id) return; setLinks((x) => ({ ...x, owners: { ...x.owners, [id]: l?.full_name ?? id } })); }} />
+            <div className="u-mt-8">
+              {!Object.keys(links.owners).length && <span className="note">No landowner chosen.</span>}
+              {Object.entries(links.owners).map(([id, label]) => (
+                <span key={id} className="pill u-chip">{label}{' '}
+                  <button type="button" className="bx" aria-label={`Remove ${label}`}
+                    onClick={() => setLinks((x) => { const o2 = { ...x.owners }; delete o2[id]; return { ...x, owners: o2 }; })}>&times;</button></span>
+              ))}
+            </div>
+          </Field>
           <div className="fg full checks"><label htmlFor="lgStay"><input id="lgStay" type="checkbox" checked={form.stay_order} onChange={(e) => setForm((f) => ({ ...f, stay_order: e.target.checked }))} /> Stay order in force (holds payments)</label></div>
           <Field label="Remarks" full htmlFor="lgRem"><textarea id="lgRem" value={form.remarks} onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))} /></Field>
         </form>

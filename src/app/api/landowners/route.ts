@@ -1,6 +1,6 @@
 import { likeOf, pageOf, paged, summarize } from '@/lib/paging';
 import { NextResponse } from 'next/server';
-import { HttpError, protect, readJson, requireRecord, toResponse, type Ctx } from '@/lib/iam/http';
+import { HttpError, json, protect, readJson, requireRecord, toResponse, type Ctx } from '@/lib/iam/http';
 import { canSeePii, guardPiiWrite, redact } from '@/lib/iam/pii';
 import { isValidCNIC } from '@/lib/domain';
 
@@ -25,6 +25,8 @@ export const GET = protect({ permission: ['landowners', 'read'] }, async (ctx) =
     const status = searchParams.get('status');
     const statementFor = searchParams.get('statement_for');
     const id = searchParams.get('id');
+
+    if (searchParams.get('check_duplicate') === '1') return await checkDuplicate(ctx, searchParams);
 
     if (statementFor) {
       const loRes = await query(
@@ -113,6 +115,65 @@ export const GET = protect({ permission: ['landowners', 'read'] }, async (ctx) =
     return toResponse(error, ctx.correlationId);
   }
 });
+
+/** Name similarity (pg_trgm, 0–1) at which a registered person is shown as a possible duplicate. */
+const NAME_SIMILARITY = 0.45;
+/** Father / husband name similarity required as well (tolerates Muhammad / Mohammad, Bux / Bakhsh). */
+const FATHER_SIMILARITY = 0.5;
+const MAX_MATCHES = 5;
+
+/**
+ * GET ?check_duplicate=1&cnic=&name=&father_name=&province= — asked by the
+ * Add Landowner form before saving (one CNIC is one person; one person can hold
+ * many parcels, so a second record must not be made).
+ *  - cnic_match: the person already registered with this CNIC. Looked up only
+ *    for a caller with pii:read (otherwise the endpoint would confirm numbers the
+ *    caller may not see), and named only where they may see personal data.
+ *  - name_matches: up to five people in the same province with a very similar
+ *    name and father / husband name; CNIC masked as everywhere else.
+ * Row-level security applies (ctx.client), so a person registered in a province
+ * the caller cannot see is not found here; saving still refuses a duplicate CNIC.
+ */
+async function checkDuplicate(ctx: Ctx, sp: URLSearchParams) {
+  if (!ctx.has('landowners', 'create'))
+    throw new HttpError(403, 'Checking for duplicates is part of registering a landowner and needs landowners:create.', 'forbidden');
+  const cnic = (sp.get('cnic') ?? '').trim();
+  const name = (sp.get('name') ?? '').trim().slice(0, 120);
+  const father = (sp.get('father_name') ?? '').trim().slice(0, 120);
+  const province = (sp.get('province') ?? '').trim().toUpperCase();
+  if (province && !/^[A-Z]{3}$/.test(province)) throw new HttpError(400, 'province must be a province code.', 'validation');
+
+  let cnicMatch: Record<string, any> | null = null;
+  if (cnic && isValidCNIC(cnic) && canSeePii(ctx)) {
+    const hit = (await ctx.client.query(
+      `SELECT lo.id, lo.code::text AS code, lo.full_name, lo.father_name, lo.province_code::text AS province_code, lo.status
+         FROM lms.landowner lo WHERE lo.cnic = $1`, [cnic])).rows[0];
+    if (hit) cnicMatch = canSeePii(ctx, hit.province_code) ? hit : { registered: true };
+  }
+
+  let nameMatches: any[] = [];
+  if (name.length >= 3 && province) {
+    nameMatches = (await ctx.client.query(
+      `SELECT lo.id, lo.code::text AS code, lo.full_name, lo.father_name, lo.province_code::text AS province_code, lo.cnic, lo.status,
+              (SELECT string_agg(DISTINCT du.name, ', ' ORDER BY du.name)
+                 FROM lms.survey_ownership_share sh
+                 JOIN lms.survey s ON s.id = sh.survey_id
+                 JOIN api.v_admin_unit_path p ON p.admin_unit_id = s.admin_unit_id
+                 JOIN lms.admin_unit du ON du.id = p.district_id
+                WHERE sh.landowner_id = lo.id) AS district,
+              round(ext.similarity(lo.full_name, $2)::numeric, 2) AS name_score
+         FROM lms.landowner lo
+        WHERE lo.province_code = $1
+          AND ($4 = '' OR lo.cnic <> $4)
+          AND lo.full_name OPERATOR(ext.%) $2
+          AND ext.similarity(lo.full_name, $2) >= $5
+          AND ($3 = '' OR ext.similarity(coalesce(lo.father_name, ''), $3) >= $6)
+        ORDER BY name_score DESC, lo.code
+        LIMIT $7`,
+      [province, name, father, cnic, NAME_SIMILARITY, FATHER_SIMILARITY, MAX_MATCHES])).rows;
+  }
+  return json(redact({ cnic_match: cnicMatch, name_matches: nameMatches }, ctx));
+}
 
 export const POST = protect({ permission: ['landowners', 'create'] }, async (ctx) => {
   const request = ctx.req;

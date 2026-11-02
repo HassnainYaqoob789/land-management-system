@@ -16,15 +16,18 @@ import { parcelsInside, ringOf } from '@/lib/landRequestArea';
 //   WITHDRAW  requester: Draft / Returned → Withdrawn (REJECT is accepted for this too)
 //   APPROVE / RETURN / REJECT   the tier's position holder
 //   HANDOVER  Land Officer (Field): Approved → Handed over
+//   COMPLETE  Land Officer (Field): Handed over (lease, compensation case, DBPFC) → Completed ("land ready").
+//             A request handed over for acquisition completes by itself when its
+//             acquisition reaches Handover (migration 0060); the database refuses it here.
 const TIERS: Record<string, { group: string; prefix: string; next: string; nextRole: string }> = {
   'Submitted': { group: 'Director Operations', prefix: 'director_ops', next: 'Under Review - Regional', nextRole: 'Regional Manager' },
   'Under Review - Ops': { group: 'Director Operations', prefix: 'director_ops', next: 'Under Review - Regional', nextRole: 'Regional Manager' },
   'Under Review - Regional': { group: 'Regional Manager', prefix: 'regional_mgr', next: 'Under Review - Land Affairs', nextRole: 'DM / TL Land Affairs' },
   'Under Review - Land Affairs': { group: 'DM / TL Land Affairs', prefix: 'land_affairs', next: 'Approved', nextRole: 'Land Officer (Field)' },
 };
-const ACTIONS = ['APPROVE', 'REJECT', 'RETURN', 'SUBMIT', 'WITHDRAW', 'HANDOVER'];
+const ACTIONS = ['APPROVE', 'REJECT', 'RETURN', 'SUBMIT', 'WITHDRAW', 'HANDOVER', 'COMPLETE'];
 const HANDOVER_KINDS = ['Acquisition', 'Lease', 'Compensation case', 'DBPFC'];
-const CLOSED = ['Rejected', 'Withdrawn', 'Handed over'];
+const CLOSED = ['Rejected', 'Withdrawn', 'Completed'];
 
 export const POST = protect({ authenticatedOnly: true }, async (ctx) => {
   try {
@@ -49,6 +52,10 @@ export const POST = protect({ authenticatedOnly: true }, async (ctx) => {
     if (req.stage_code === 'Draft' && req.created_by !== ctx.user.id) throw new HttpError(404, 'Land request not found.', 'not_found');
     if (CLOSED.includes(req.stage_code))
       throw new HttpError(409, `Cannot transition a closed request in stage ${req.stage_code}`, 'state');
+    if (req.stage_code === 'Handed over' && act !== 'COMPLETE')
+      throw new HttpError(409, 'This request has been handed over to the land team.', 'state');
+    if (act === 'COMPLETE' && req.stage_code !== 'Handed over')
+      throw new HttpError(409, 'Only a handed-over request can be marked as land ready.', 'state');
 
     let newStage: string;
     let newRole: string;
@@ -72,6 +79,20 @@ export const POST = protect({ authenticatedOnly: true }, async (ctx) => {
           for (const p of ['director_ops', 'regional_mgr', 'land_affairs'])
             for (const c of ['id', 'action', 'comment', 'date']) extra.push(`${p}_${c} = NULL`);
       } else { newStage = 'Withdrawn'; newRole = 'None'; }
+    } else if (req.stage_code === 'Handed over') {
+      // COMPLETE: the land work is done ("land ready").
+      if (req.handed_over_kind === 'Acquisition')
+        throw new HttpError(409, `This request completes by itself when its acquisition${req.handed_over_record_code ? ` (${req.handed_over_record_code})` : ''} reaches Handover.`, 'state');
+      if (!ctx.can('requests', 'create', { province: rec.province, project: rec.project }))
+        throw new HttpError(403, 'You are not permitted to close land requests in this province.', 'forbidden');
+      const held = await ctx.client.query(`SELECT 1 FROM lms.app_user_group WHERE user_id = $1 AND group_code = 'Land Officer (Field)'`, [ctx.user.id]);
+      if (!held.rows.length) throw new HttpError(403, 'A handed-over request is completed by the Land Officer (Field).', 'forbidden');
+      const recordCode = typeof body.record_code === 'string' ? body.record_code.trim().slice(0, 40) : '';
+      newStage = 'Completed'; newRole = 'None';
+      add('completed_by = ?', ctx.user.id);
+      add('completed_at = ?', new Date());
+      add('completed_comment = ?', note);
+      if (recordCode && !req.handed_over_record_code) add('handed_over_record_code = ?', recordCode);
     } else if (req.stage_code === 'Approved') {
       if (act !== 'HANDOVER') throw new HttpError(409, 'This request is approved. The Land Officer takes it up with "Start land work".', 'state');
       if (!ctx.can('requests', 'create', { province: rec.province, project: rec.project }))

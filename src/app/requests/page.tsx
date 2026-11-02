@@ -11,12 +11,14 @@ import { useCan, useCanIn } from '@/lib/client/permissions';
 
 // Land requests: Initiator (Exploration Planner or Land Officer) → Director
 // Operations → Regional Manager → DM / TL Land Affairs → Land Officer takes
-// the land work up ("Handed over"). Polygons are drawn on the GIS map
+// the land work up ("Handed over") → the land is ready ("Completed": by itself
+// when the acquisition reaches Handover, or by the Land Officer for a lease,
+// case or DBPFC). Polygons are drawn on the GIS map
 // (/gis); this screen lists the requests, shows each one's polygon versions,
 // parcels inside and warnings, and carries the decisions.
 
 const REVIEW = ['Submitted', 'Under Review - Ops', 'Under Review - Regional', 'Under Review - Land Affairs'];
-const CLOSED = ['Rejected', 'Withdrawn', 'Handed over'];
+const CLOSED = ['Rejected', 'Withdrawn', 'Handed over', 'Completed'];   // no "waiting on" note
 const HANDOVER_KINDS = ['Acquisition', 'Lease', 'Compensation case', 'DBPFC'];
 
 export default function RequestsPage() {
@@ -52,6 +54,8 @@ function RequestsContent() {
   const [handover, setHandover] = useState<any | null>(null);
   const [hoKind, setHoKind] = useState('Acquisition');
   const [hoMark, setHoMark] = useState(true);
+  const [complete, setComplete] = useState<any | null>(null);
+  const [recordCode, setRecordCode] = useState('');
   const [detailId, setDetailId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -122,6 +126,13 @@ function RequestsContent() {
     }, () => { setHandover(null); setActionComment(''); });
   };
 
+  const handleComplete = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!complete) return;
+    run(() => send('POST', `/api/requests/${complete.id}/transition`, { action: 'COMPLETE', comment: actionComment, record_code: recordCode }),
+      () => { setComplete(null); setActionComment(''); setRecordCode(''); }, `${complete.code}: land ready. The requester can see it.`);
+  };
+
   const needle = search.toLowerCase();
   const filtered = requests.filter((r) =>
     [r.code, r.project_name, r.purpose, r.concession_name, r.created_by_name].some((v) => String(v ?? '').toLowerCase().includes(needle)));
@@ -129,10 +140,11 @@ function RequestsContent() {
   const TIERS: [string, (r: any) => boolean, (r: any) => boolean][] = [
     // [label, done, current]
     ['Initiator', (r) => r.stage_code !== 'Draft' && r.stage_code !== 'Returned', (r) => r.stage_code === 'Draft' || r.stage_code === 'Returned'],
-    ['Director Ops', (r) => ['Under Review - Regional', 'Under Review - Land Affairs', 'Approved', 'Handed over'].includes(r.stage_code), (r) => ['Submitted', 'Under Review - Ops'].includes(r.stage_code)],
-    ['Regional Mgr', (r) => ['Under Review - Land Affairs', 'Approved', 'Handed over'].includes(r.stage_code), (r) => r.stage_code === 'Under Review - Regional'],
-    ['Land Affairs', (r) => ['Approved', 'Handed over'].includes(r.stage_code), (r) => r.stage_code === 'Under Review - Land Affairs'],
-    ['Land work', (r) => r.stage_code === 'Handed over', (r) => r.stage_code === 'Approved'],
+    ['Director Ops', (r) => ['Under Review - Regional', 'Under Review - Land Affairs', 'Approved', 'Handed over', 'Completed'].includes(r.stage_code), (r) => ['Submitted', 'Under Review - Ops'].includes(r.stage_code)],
+    ['Regional Mgr', (r) => ['Under Review - Land Affairs', 'Approved', 'Handed over', 'Completed'].includes(r.stage_code), (r) => r.stage_code === 'Under Review - Regional'],
+    ['Land Affairs', (r) => ['Approved', 'Handed over', 'Completed'].includes(r.stage_code), (r) => r.stage_code === 'Under Review - Land Affairs'],
+    ['Land work', (r) => ['Handed over', 'Completed'].includes(r.stage_code), (r) => r.stage_code === 'Approved'],
+    ['Land ready', (r) => r.stage_code === 'Completed', (r) => r.stage_code === 'Handed over'],
   ];
   const tierGroup: Record<string, string> = {
     'Submitted': 'Director Operations', 'Under Review - Ops': 'Director Operations',
@@ -156,6 +168,8 @@ function RequestsContent() {
       out.push(<Link key="a" className="btn btn-p btn-sm" href={`/acquisitions?from_request=${r.id}`}>Create acquisition</Link>);
     if (r.stage_code === 'Approved' && canIn('requests:create', r.province_code) && groups.includes('Land Officer (Field)'))
       out.push(<button key="h" onClick={() => { setError(null); setActionComment(''); setHoKind('Acquisition'); setHoMark(true); setHandover(r); }}>Start land work</button>);
+    if (r.stage_code === 'Handed over' && r.handed_over_kind !== 'Acquisition' && canIn('requests:create', r.province_code) && groups.includes('Land Officer (Field)'))
+      out.push(<button key="c" className="btn btn-g btn-sm" onClick={() => { setError(null); setActionComment(''); setRecordCode(r.handed_over_record_code ?? ''); setComplete(r); }}>Mark land ready</button>);
     return out;
   };
 
@@ -168,13 +182,14 @@ function RequestsContent() {
           <Kpi label="Pending Regional Manager" value={fmtNum(summary.pending_regional)} sub="tier 3 review" tone="w" />
           <Kpi label="Pending Land Affairs" value={fmtNum(summary.pending_land_affairs)} sub="tier 4 review" tone="w" />
           <Kpi label="Approved" value={fmtNum(summary.approved)} sub="waiting for the land team" tone="g" />
-          <Kpi label="Handed over" value={fmtNum(summary.handed_over)} sub={Number(summary.returned) ? `${summary.returned} returned for changes` : 'land work started'} tone="g" />
+          <Kpi label="Handed over" value={fmtNum(summary.handed_over)} sub={Number(summary.returned) ? `${summary.returned} returned for changes` : 'land work in progress'} tone="g" />
+          <Kpi label="Land ready" value={fmtNum(summary.completed)} sub="completed requests" tone="g" />
         </div>
       )}
       <Card icon="clip" title="Land Requests"
         sub="Initiator → Director Operations → Regional Manager → Land Affairs → Land Officer · the requester cannot approve, and no one approves two tiers">
         <LoadError error={list.error} status={list.status} code={list.code} what="land requests" />
-        {error && !isNewModalOpen && !transitionTarget && !ownAction && !handover && <ErrorNote>{error}</ErrorNote>}
+        {error && !isNewModalOpen && !transitionTarget && !ownAction && !handover && !complete && <ErrorNote>{error}</ErrorNote>}
         {done && <div className="al i" role="status"><span className="i" /><div className="tx">{done}</div></div>}
         {canCreate && (
           <div className="bar">
@@ -188,7 +203,7 @@ function RequestsContent() {
           <SearchBox value={search} onChange={setSearch} placeholder="Search request, project, purpose or requester…" />
           <Select label="Stage" value={stageFilter === 'ALL' ? '' : stageFilter} onChange={(v) => setStageFilter(v || 'ALL')} all="All stages"
             options={['Draft', ['Submitted', 'Submitted (Director Ops)'], ['Under Review - Regional', 'Regional Manager'], ['Under Review - Land Affairs', 'Land Affairs'],
-              'Returned', 'Approved', 'Handed over', 'Rejected', 'Withdrawn']} />
+              'Returned', 'Approved', 'Handed over', ['Completed', 'Completed (land ready)'], 'Rejected', 'Withdrawn']} />
           {canCreate && <label className="gl-check"><input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} /> Mine only</label>}
           <Count n={filtered.length} />
         </Toolbar>
@@ -218,7 +233,9 @@ function RequestsContent() {
                   {!CLOSED.includes(r.stage_code) && <small className="note">
                     {r.stage_code === 'Draft' ? 'Draft — not sent yet' : r.stage_code === 'Returned' ? 'Returned to the requester for changes'
                       : r.stage_code === 'Approved' ? 'Approved — waiting for the Land Officer' : `Waiting on ${r.pending_approver_role}`}</small>}
-                  {r.stage_code === 'Handed over' && <small className="note">{r.handed_over_kind} · {r.handed_over_by_name}{r.handed_over_record_code ? ` · ${r.handed_over_record_code}` : ''}</small>}
+                  {r.stage_code === 'Handed over' && <small className="note">{r.handed_over_kind} · {r.handed_over_by_name}{r.handed_over_record_code ? ` · ${r.handed_over_record_code}` : ''}
+                    {r.work_stage ? <> · now at <b>{r.work_stage}</b></> : r.handed_over_kind === 'Acquisition' && !r.handed_over_record_id ? ' · acquisition not created yet' : ''}</small>}
+                  {r.stage_code === 'Completed' && <small className="note">Land ready · {fmtDate(r.completed_at)}{r.handed_over_record_code ? ` · ${r.handed_over_record_code}` : ''}</small>}
                 </td>
                 <td><div className="acts">{actionsFor(r)}</div></td>
               </tr>
@@ -350,6 +367,25 @@ function RequestsContent() {
           </form>
         )}
       </Modal>
+      <Modal open={!!complete} size="sm" icon="check" title={`Land ready — ${complete?.code ?? ''}`} onClose={() => setComplete(null)}
+        footer={<>
+          <button type="button" className="btn btn-s" onClick={() => setComplete(null)}>Cancel</button>
+          <button type="submit" form="doneForm" disabled={isSubmitting} className="btn btn-g">{isSubmitting ? 'Saving…' : 'Mark land ready'}</button>
+        </>}>
+        {complete && (
+          <form id="doneForm" onSubmit={handleComplete}>
+            {error && <ErrorNote>{error}</ErrorNote>}
+            <p className="u-mb-10">The {String(complete.handed_over_kind).toLowerCase()} work for this request is finished and the land is available.
+              The request closes as <b>Completed</b> and its requester sees it. This cannot be undone.</p>
+            <Field label={`${complete.handed_over_kind} record no.`} htmlFor="doneRec" hint="The lease, case or DBPFC code in its register">
+              <input id="doneRec" type="text" maxLength={40} value={recordCode} onChange={(e) => setRecordCode(e.target.value)} disabled={!!complete.handed_over_record_code} />
+            </Field>
+            <Field label="Comment" required htmlFor="doneNote">
+              <textarea id="doneNote" required value={actionComment} onChange={(e) => setActionComment(e.target.value)} placeholder="e.g. lease agreement signed, possession taken on site" />
+            </Field>
+          </form>
+        )}
+      </Modal>
     </>
   );
 }
@@ -363,6 +399,7 @@ function RequestDetail({ id, canMap, onClose }: { id: string; canMap: boolean; o
   const areas: any[] = d.data?.areas ?? [];
   const parcels: any[] = d.data?.parcels ?? [];
   const warnings: any[] = d.data?.warnings ?? [];
+  const work: any = d.data?.work ?? null;
   const [showCorners, setShowCorners] = useState(false);
   const ring: [number, number][] = areas[0]?.geometry?.coordinates?.[0]?.slice(0, -1) ?? [];
   const tiers: [string, string, string][] = [['Director Operations', 'director_ops', 'director_ops_name'], ['Regional Manager', 'regional_mgr', 'regional_mgr_name'], ['DM / TL Land Affairs', 'land_affairs', 'land_affairs_name']];
@@ -383,10 +420,31 @@ function RequestDetail({ id, canMap, onClose }: { id: string; canMap: boolean; o
             <div><small>Required by</small><span>{fmtDate(r.required_date)} · {r.priority}</span></div>
             <div><small>Target deh</small><span>{r.target_deh || '—'}</span></div>
             {areas[0] && <div><small>Centre (lat, long)</small><span>{Number(areas[0].centroid_lat).toFixed(5)}, {Number(areas[0].centroid_lng).toFixed(5)}</span></div>}
-            {r.stage_code === 'Handed over' && <div><small>Handed over</small><span>{r.handed_over_kind} · {r.handed_over_by_name} · {fmtDate(r.handed_over_at)}
+            {['Handed over', 'Completed'].includes(r.stage_code) && <div><small>Handed over</small><span>{r.handed_over_kind} · {r.handed_over_by_name} · {fmtDate(r.handed_over_at)}
               {r.handed_over_record_code ? <> · record <b>{r.handed_over_record_code}</b></> : null}
               {REGISTER_OF[r.handed_over_kind] && <> · <Link href={REGISTER_OF[r.handed_over_kind]}>open the register</Link></>}</span></div>}
           </div>
+          {r.stage_code === 'Completed' && (
+            <div className="al i u-mb-10" role="status"><span className="i" /><div className="tx"><b>Land ready.</b> {r.completed_comment}
+              {' '}<small className="note">({r.completed_by_name || '—'}, {fmtDate(r.completed_at)})</small></div></div>
+          )}
+          {work && ['Handed over', 'Completed'].includes(r.stage_code) && (
+            <div className="u-mb-10">
+              <h4>Land work progress{r.handed_over_record_code ? ` — ${r.handed_over_record_code}` : ''}</h4>
+              {!r.handed_over_record_id ? <p className="note">The Land Officer has not created the acquisition yet.</p> : (
+                <>
+                  <div className="wf u-m-0">
+                    {work.stages.map((st: any, i: number) => {
+                      const cur = work.stages.findIndex((x: any) => x.code === r.work_stage);
+                      return <div key={st.code} className={`st${i === cur && r.stage_code !== 'Completed' ? ' cur' : i <= cur ? ' done' : ''}`}>{i + 1}. {st.label}</div>;
+                    })}
+                  </div>
+                  <small className="note">{r.work_stage === 'Cancelled' ? 'The acquisition was cancelled.' : `Stage ${r.work_stage ?? '—'} since ${fmtDate(r.work_stage_at)}`}
+                    {work.acquisition ? ` · ${work.acquisition.mode} · ${fmtNum(work.acquisition.area_required, 2)} ac · ${work.acquisition.parcels} parcel(s)${work.acquisition.target_handover_date ? ` · target hand-over ${fmtDate(work.acquisition.target_handover_date)}` : ''}` : ''}</small>
+                </>
+              )}
+            </div>
+          )}
           <p className="u-mb-10"><b>Justification.</b> {r.justification || <span className="note">— (not yet written)</span>}</p>
 
           {warnings.map((w, i) => (
@@ -404,8 +462,11 @@ function RequestDetail({ id, canMap, onClose }: { id: string; canMap: boolean; o
                 <td>{r[`${p}_comment`] || '—'}</td>
               </tr>
             ))}
-            {r.stage_code === 'Handed over' && (
+            {['Handed over', 'Completed'].includes(r.stage_code) && (
               <tr><td>Land Officer</td><td><Stage value="Handed over" /></td><td>{r.handed_over_by_name}</td><td>{fmtDate(r.handed_over_at)}</td><td>{r.handed_over_comment}</td></tr>
+            )}
+            {r.stage_code === 'Completed' && (
+              <tr><td>Land ready</td><td><Stage value="Completed" /></td><td>{r.completed_by_name || '—'}</td><td>{fmtDate(r.completed_at)}</td><td>{r.completed_comment}</td></tr>
             )}
           </Table>
 

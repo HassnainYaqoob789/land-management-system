@@ -12,6 +12,7 @@ import SignInTab from './_components/SignInTab';
 import MappingsTab from './_components/MappingsTab';
 import RequestsTab from './_components/RequestsTab';
 import EmergencyTab from './_components/EmergencyTab';
+import UnitsTab from './_components/UnitsTab';
 import type { IdentityData } from './_components/shared';
 
 export default function SettingsPage() {
@@ -22,8 +23,8 @@ export default function SettingsPage() {
   );
 }
 
-type Tab = 'general' | 'policy' | 'signin' | 'mappings' | 'requests' | 'emergency';
-const TABS: Tab[] = ['general', 'policy', 'signin', 'mappings', 'requests', 'emergency'];
+type Tab = 'general' | 'units' | 'policy' | 'signin' | 'mappings' | 'requests' | 'emergency';
+const TABS: Tab[] = ['general', 'units', 'policy', 'signin', 'mappings', 'requests', 'emergency'];
 
 // System settings for every settings reader; identity and security policy,
 // sign-in methods, group mappings, access requests and emergency access only
@@ -37,7 +38,7 @@ function SettingsContent() {
   const id = idApi.data;
   const pending = id?.requests.filter((r) => r.status === 'pending').length ?? 0;
 
-  const available: [Tab, React.ReactNode][] = [['general', 'General']];
+  const available: [Tab, React.ReactNode][] = [['general', 'General'], ['units', 'Land units']];
   if (identity) {
     available.push(['policy', 'Security policy'], ['signin', 'Sign-in methods'], ['mappings', 'Group mappings']);
     if (id?.canDecide) available.push(['requests', pending ? `Access requests (${pending})` : 'Access requests']);
@@ -63,6 +64,7 @@ function SettingsContent() {
         {shown === 'general' && (general.error ? <LoadError error={general.error} what="system settings" />
           : !general.data ? <Loading what="system settings" />
           : <GeneralTab data={general.data} canUpdate={can('settings:update')} reload={general.reload} />)}
+        {shown === 'units' && <UnitsTab canUpdate={can('settings:update')} />}
         {shown === 'policy' && identityBody((d) => <PolicyTab data={d} reload={idApi.reload} />)}
         {shown === 'signin' && identityBody((d) => <SignInTab data={d} reload={idApi.reload} />)}
         {shown === 'mappings' && identityBody((d) => <MappingsTab data={d} reload={idApi.reload} />)}

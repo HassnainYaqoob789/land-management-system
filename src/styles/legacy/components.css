@@ -15,6 +15,10 @@
   overflow: auto;
   padding: 24px;
 }
+/* Centre with auto margins so a child taller than the screen (the province
+   chooser on a phone) scrolls from its top instead of being cut off. */
+.screen { justify-content: flex-start; align-items: flex-start; }
+.screen > * { margin: auto; flex-shrink: 0; }
 .login-card {
   background: var(--surface);
   color: var(--text);

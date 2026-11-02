@@ -13,7 +13,7 @@ export const AREA_SOURCES = ['draw', 'coordinates', 'kml'] as const;
 export type AreaSource = (typeof AREA_SOURCES)[number];
 
 /** Stages in which nothing more happens to a request. */
-export const CLOSED_STAGES = ['Rejected', 'Withdrawn', 'Handed over'];
+export const CLOSED_STAGES = ['Rejected', 'Withdrawn', 'Handed over', 'Completed'];
 /** Stages a request is still being prepared in (by its requester). */
 export const EDITABLE_STAGES = ['Draft', 'Returned'];
 
@@ -130,7 +130,7 @@ export function warningsFor(parcels: Awaited<ReturnType<typeof parcelsInside>>, 
   const gov = parcels.filter((p) => p.land_class === 'Government').map((p) => p.code);
   if (gov.length) w.push({ level: 'info', text: `Government land inside (${list(gov)}): in Sindh this goes through DBPFC.` });
   if (o.polygonAcres && o.polygonAcres > 1000) w.push({ level: 'warning', text: `A very large area: ${Math.round(o.polygonAcres).toLocaleString()} acres.` });
-  if (overlaps.length) w.push({ level: 'warning', text: `Overlaps other open land request(s): ${overlaps.map((x) => `${x.code} (${x.stage})`).join(', ')}.` });
+  if (overlaps.length) w.push({ level: 'warning', text: `Overlaps other land request(s): ${overlaps.map((x) => `${x.code} (${x.stage})`).join(', ')}.` });
   if (o.polygonAcres !== null && !parcels.length)
     w.push({ level: 'info', text: 'No recorded parcel lies inside this area. The land team will identify the khasras on the ground.' });
   if (o.polygonAcres && o.requestedAcres && Math.abs(o.polygonAcres - o.requestedAcres) / o.polygonAcres > 0.05)

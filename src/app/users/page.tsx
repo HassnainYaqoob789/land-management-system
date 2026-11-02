@@ -16,6 +16,7 @@ import { send, useApi, useReference } from '@/lib/client/api';
 import { useCan } from '@/lib/client/permissions';
 import UserAccess from '@/components/roles/UserAccess';
 import BulkRoleDialog from '@/components/roles/BulkRoleDialog';
+import { expiryState, expiryBadge, untilLabel } from './grantExpiry';
 
 export default function UsersPage() {
   return <Shell><UsersContent /></Shell>;
@@ -29,6 +30,26 @@ const sameSet = (a: string[], b: string[]) => {
   const sb = [...b].sort();
   return [...a].sort().every((x, i) => x === sb[i]);
 };
+
+/**
+ * An account's open role grants, each with its end date: "until …", a warning when it
+ * ends within a week, "Expired" once it has (an expired grant confers nothing).
+ */
+function RoleGrants({ grants, fallback }: { grants: any[]; fallback: string[] }) {
+  if (!grants.length) return fallback.length ? <>{fallback.map((r) => <span key={r} className="pill">{r}</span>)}</> : <span className="note">none</span>;
+  return <>{grants.map((a) => {
+    const s = a.expired ? { ...expiryState(a.expires_at), tone: 'expired' as const } : expiryState(a.expires_at);
+    const badge = expiryBadge(s);
+    return (
+      <span key={a.id} className="u-nowrap">
+        <span className="pill" title={a.scope_province ? `limited to ${a.scope_province}` : undefined}>{a.role_code}{a.scope_province ? ` · ${a.scope_province}` : ''}</span>
+        {s.at && <small className="note"> {untilLabel(s.at)}</small>}
+        {badge && <> <span className={`b ${s.tone === 'expired' ? 'b-d' : 'b-w'}`}>{badge}</span></>}
+        <br />
+      </span>
+    );
+  })}</>;
+}
 
 function UsersContent() {
   const { currentUser } = useLMS();
@@ -112,7 +133,7 @@ function UsersContent() {
                       checked={picked.includes(x.id)} onChange={(e) => togglePick(x.id, e.target.checked)} /></td>}
                     <td><span className="code">{x.code}</span><br /><small className="note mono">{x.username}</small></td>
                     <td>{x.full_name}<br /><small className="note">{[x.position, x.department].filter(Boolean).join(' · ') || x.email || '—'}</small></td>
-                    <td>{(x.iam_roles ?? []).map((r: string) => <span key={r} className="pill">{r}</span>)}{!(x.iam_roles ?? []).length && <span className="note">none</span>}</td>
+                    <td><RoleGrants grants={assignments.filter((a) => a.user_id === x.id)} fallback={x.iam_roles ?? []} /></td>
                     <td>{(x.provinces ?? []).join(', ') || '—'}</td>
                     <td>{(x.groups ?? []).map((g: string) => <span key={g} className="pill">{g}</span>)}</td>
                     <td>{x.mfa_enrolled ? <span className="b b-g" title={`${x.mfa_totp ? 'authenticator' : ''}${x.mfa_totp && x.passkeys ? ' + ' : ''}${x.passkeys ? `${x.passkeys} passkey(s)` : ''}`}>On</span> : <span className="b b-n">Off</span>}</td>

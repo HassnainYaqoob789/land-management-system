@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Shell from '@/components/layout/Shell';
 import { RefSelect, WorkflowActions, RecordPicker, useList, useListQuery } from '@/components/legacy/data';
 import { send, useApi, useReference, stagesOf } from '@/lib/client/api';
@@ -94,6 +94,21 @@ function LeasesContent() {
     survey_id: '',
   });
 
+  // /leases?from_request=<id>: a land request handed over for a lease opens the form pre-filled with its
+  // project, drawn area and the first recorded parcel inside its polygon; saving links the request to the lease.
+  const [fromRequest, setFromRequest] = useState<any | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('from_request');
+    if (!id) return;
+    fetch(`/api/requests?id=${encodeURIComponent(id)}`).then((r) => r.json()).then((d) => {
+      if (!d.request) { setError(d.error || 'That land request was not found.'); return; }
+      const r = d.request;
+      const parcel = (d.parcels ?? []).find((p: any) => !['Acquired', 'Leased'].includes(p.status));
+      setNewLeaseData((x) => ({ ...x, project_id: r.project_id, initial_area: String(Number(r.area_acres)), survey_id: parcel?.id ?? '' }));
+      setFromRequest(r); setIsNewModalOpen(true);
+    }).catch(() => {});
+  }, []);
+
   // Reason-based Hold Modal state
   const [holdTarget, setHoldTarget] = useState<any | null>(null);
   const [holdReason, setHoldReason] = useState('Disputed Title / Ownership Conflict');
@@ -144,7 +159,9 @@ function LeasesContent() {
         rate_per_acre: rateNum,
         lessor_ids: newLeaseData.lessor_id ? [newLeaseData.lessor_id] : [],
         survey_ids: newLeaseData.survey_id ? [newLeaseData.survey_id] : [],
-      });
+        land_request_id: fromRequest?.id,
+      }, { also: ['/api/requests'] });
+      setFromRequest(null);
       setError(null);
 
       setIsNewModalOpen(false);
@@ -393,7 +410,7 @@ function LeasesContent() {
         )}
       </Modal>
 
-      <Modal open={isNewModalOpen} icon="cal" title="Add Lease" onClose={() => setIsNewModalOpen(false)}
+      <Modal open={isNewModalOpen} icon="cal" title={fromRequest ? `Add Lease — from land request ${fromRequest.code}` : "Add Lease"} onClose={() => setIsNewModalOpen(false)}
         footer={<>
           {error && <span className="u-danger u-flex-1" role="alert">{error}</span>}
           <button type="button" className="btn btn-s" onClick={() => setIsNewModalOpen(false)}>Cancel</button>

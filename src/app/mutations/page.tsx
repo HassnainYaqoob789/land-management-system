@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import Shell from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtRs, fmtDate, Pager } from '@/components/legacy/ui';
 import { useList, RefSelect, WorkflowActions, useListQuery, RecordPicker } from '@/components/legacy/data';
-import { send } from '@/lib/client/api';
+import { send, useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
 import { useCan, useCanIn } from '@/lib/client/permissions';
 
@@ -33,6 +33,7 @@ function MutationsContent() {
   const [busy, setBusy] = useState(false);
   const canEdit = (m: any) => canIn('mutations:update', m?.province_code);
   const [transferor, setTransferor] = useState<any | null>(null);   // the chosen landowner record
+  const [detail, setDetail] = useState<any | null>(null);           // the mutation whose details are open
   const total = heirs.reduce((n, h) => n + Number(h.share_pct || 0), 0);
   const inheritance = /Inheritance/.test(form.mutation_type);
 
@@ -99,6 +100,7 @@ function MutationsContent() {
                   {canEdit(m) && !['Approved & Applied', 'Cancelled'].includes(m.stage_code) && (
                     <button onClick={() => { setFormError(null); setRev(m); setRevForm({ revenue_mutation_no: m.revenue_mutation_no ?? '', mutation_date: m.mutation_date?.slice(0, 10) ?? '', revenue_office: m.revenue_office ?? '', certificate_no: m.certificate_no ?? '' }); }}>Revenue record</button>
                   )}
+                  <button onClick={() => setDetail(m)}>Details</button>
                   <WorkflowActions workflow="mutations" resource="/api/mutations" record={m} can={canEdit(m)} />
                 </div></td>
               </tr>
@@ -107,6 +109,8 @@ function MutationsContent() {
         )}
         <Pager page={page} onOffset={lq.setOffset} />
       </Card>
+
+      <MutationDetails mutation={detail} onClose={() => setDetail(null)} />
 
       <Modal open={!!rev} size="sm" icon="file" title={`Revenue record — ${rev?.code ?? ''}`} onClose={() => setRev(null)}
         footer={<>
@@ -168,5 +172,50 @@ function MutationsContent() {
         </form>
       </Modal>
     </>
+  );
+}
+
+/** One mutation: heirs / transferees and, once applied, the payments re-pointed to them (0061). */
+function MutationDetails({ mutation, onClose }: { mutation: any | null; onClose: () => void }) {
+  const { data, loading, error } = useApi<any>(mutation ? `/api/mutations?id=${encodeURIComponent(mutation.id)}` : null);
+  const heirs: any[] = data?.heirs ?? [];
+  const repointed: any[] = data?.repointed ?? [];
+  const applied = mutation?.stage_code === 'Approved & Applied';
+  return (
+    <Modal open={!!mutation} size="lg" icon="repeat" title={`Mutation — ${mutation?.code ?? ''}`} onClose={onClose}
+      footer={<button type="button" className="btn btn-s" onClick={onClose}>Close</button>}>
+      {loading ? <Loading what="mutation details" /> : error ? <p className="u-danger" role="alert">{error}</p> : (
+        <>
+          <p className="note u-mb-10">{mutation?.mutation_type} · transferor {mutation?.transferor_name} · <Stage value={mutation?.stage_code} /></p>
+          <div className="sec-t">{/Inheritance/.test(mutation?.mutation_type ?? '') ? 'Legal heirs' : 'Transferees'}</div>
+          <Table caption="Heirs and transferees" head={<><th>Landowner</th><th>Relation</th><th className="num">Share %</th></>}
+            empty={heirs.length ? false : 'None.'} colSpan={3}>
+            {heirs.map((h) => (
+              <tr key={h.id}><td>{h.heir_name} <small className="note mono">{h.heir_code}</small></td><td>{h.relation}</td><td className="num">{fmtNum(h.share_pct, 4)}</td></tr>
+            ))}
+          </Table>
+          <div className="sec-t">Payments re-pointed</div>
+          <p className="note u-mb-10">
+            {applied
+              ? 'Open compensation cases and active leases on these parcels now pay the heirs / transferees. The transferor keeps only the share already paid.'
+              : 'When the mutation is applied, unpaid compensation and future lease rent on these parcels move to the heirs / transferees.'}
+          </p>
+          <Table caption="Payments re-pointed"
+            head={<><th>Record</th><th>From</th><th>To</th><th className="num">Share moved %</th><th className="num">Paid kept</th><th>Note</th></>}
+            empty={repointed.length ? false : applied ? 'No open case or active lease listed the transferor on these parcels.' : 'Not applied yet.'} colSpan={6}>
+            {repointed.map((r) => (
+              <tr key={r.id}>
+                <td><span className="pill">{r.kind === 'case' ? 'Case' : 'Lease'}</span> <span className="code">{r.record_code}</span></td>
+                <td>{r.from_name} <small className="note mono">{r.from_code}</small></td>
+                <td>{r.to_name ? <>{r.to_name} <small className="note mono">{r.to_code}</small></> : <span className="note">—</span>}</td>
+                <td className="num">{fmtNum(r.share_moved, 4)}</td>
+                <td className="num">{r.kind === 'case' ? <>{fmtRs(r.paid_amount)}<br /><small className="note">{fmtNum(r.share_kept, 4)}% kept</small></> : <span className="note">—</span>}</td>
+                <td>{r.note ? <small className="note">{r.note}</small> : <span className="note">—</span>}</td>
+              </tr>
+            ))}
+          </Table>
+        </>
+      )}
+    </Modal>
   );
 }

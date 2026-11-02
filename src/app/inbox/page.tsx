@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Shell from '@/components/layout/Shell';
 import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Tabs, Loading, ErrorNote, Kpi, fmtNum } from '@/components/legacy/ui';
@@ -18,7 +18,10 @@ export default function InboxPage() {
 const SCREEN: Record<string, string> = {
   cases: '/cases', acquisitions: '/acquisitions', mutations: '/mutations', leases: '/leases', rows: '/rows',
   payments: '/payments', dbpfc: '/dbpfc', grievances: '/grievances', encroachments: '/encroachments',
+  requests: '/requests',
 };
+// How each kind of queue item is named in the Workflow column.
+const LABEL: Record<string, string> = { requests: 'Land request' };
 
 /**
  * Commenting is a write on the record's approval discussion (UI-02): it needs
@@ -38,7 +41,15 @@ function InboxContent() {
   const assignments = allAssignments.filter(readable);
   const bottlenecks: any[] = (body?.bottlenecks ?? []).filter(readable), comments: any[] = (body?.comments ?? []).filter(readable);
   const mine = new Set<string>(body?.user_groups ?? []);
-  const [tab, setTab] = useState<'mine' | 'all' | 'notifications' | 'bottlenecks'>('mine');
+  // Notices on the user's own land requests (returned, rejected, approved, handed over, land ready, drafts).
+  const requestAlerts: any[] = can('requests:read') ? (body?.request_alerts ?? []) : [];
+  const [tab, setTab] = useState<'mine' | 'all' | 'notifications' | 'requests' | 'bottlenecks'>('mine');
+  // Someone with nothing to approve but notices on their own requests starts on those notices.
+  const [tabChosen, setTabChosen] = useState(false);
+  useEffect(() => {
+    if (!tabChosen && body && !(body.mine ?? []).length && (body.request_alerts ?? []).length) setTab('requests');
+  }, [body, tabChosen]);
+  const chooseTab = (t: typeof tab) => { setTabChosen(true); setTab(t); };
   const [q, setQ] = useState('');
   const [commentOn, setCommentOn] = useState<any | null>(null);
   const [text, setText] = useState('');
@@ -54,6 +65,9 @@ function InboxContent() {
   const openTotal = assignments.length === allAssignments.length ? (body?.assignments_total ?? assignments.length) : assignments.length;
   const rows = (tab === 'mine' ? forMe : assignments).filter(match);
   const screenFor = (wf: string) => { const href = SCREEN[wf]; const need = href ? routePermission(href) : null; return href && (!need || can(need)) ? href : null; };
+  // A land request opens straight on its details (/requests?open=<id>); other records open their register.
+  const openLink = (a: any) => (screenFor(a.workflow_code) ? (a.href || screenFor(a.workflow_code)) : null);
+  const isLandRequest = (a: any) => a.kind === 'land_request';
   const unread = notifications.filter((n) => !n.read_at);
   const act = async (b: object) => { setFormError(null); try { await send('POST', '/api/inbox', b); } catch (e: any) { setFormError(e.message); } };
 
@@ -77,9 +91,11 @@ function InboxContent() {
       <Card icon="bell" title="Approvals & Alerts" sub="Records waiting for an approval position, notifications, and where approvals are stuck">
         <LoadError {...list} what="the approval queue" />
         {formError && !commentOn && <ErrorNote>{formError}</ErrorNote>}
-        {body && <Tabs label="Inbox" value={tab} onChange={setTab} tabs={[
+        {body && <Tabs label="Inbox" value={tab} onChange={chooseTab} tabs={[
           ['mine', `Waiting on you (${fmtNum(mineTotal)})`], ['all', `All open (${fmtNum(openTotal)})`],
-          ['notifications', `Notifications (${unread.length})`], ['bottlenecks', `Bottlenecks (${bottlenecks.length})`],
+          ['notifications', `Notifications (${unread.length})`],
+          ...(can('requests:read') ? [['requests', `Your land requests (${requestAlerts.length})`] as ['requests', string]] : []),
+          ['bottlenecks', `Bottlenecks (${bottlenecks.length})`],
         ]} />}
         {loading ? <Loading what="inbox" /> : error && !body ? null : (<>
           {(tab === 'mine' || tab === 'all') && (<>
@@ -90,14 +106,14 @@ function InboxContent() {
               {rows.map((a) => (
                 <tr key={a.id}>
                   <td><span className="code">{a.record_code}</span>{a.province_code && <><br /><span className="pill">{a.province_code}</span></>}</td>
-                  <td>{a.workflow_code}</td>
+                  <td>{LABEL[a.workflow_code] ?? a.workflow_code}</td>
                   <td><Stage value={a.stage_code} /></td>
                   <td>{a.assigned_group}{a.assigned_user_name && <><br /><small className="note">{a.assigned_user_name}</small></>}</td>
                   <td>{a.summary || <span className="note">—</span>}</td>
                   <td className="num"><span className={`b ${a.days_waiting > 7 ? 'b-d' : a.days_waiting > 3 ? 'b-w' : 'b-n'}`}>{a.days_waiting}</span></td>
                   <td><div className="acts">
-                    {screenFor(a.workflow_code) && <Link href={screenFor(a.workflow_code)!}>Open</Link>}
-                    {can(commentNeed(a.workflow_code), 'any') && (
+                    {openLink(a) && <Link href={openLink(a)!}>Open</Link>}
+                    {!isLandRequest(a) && can(commentNeed(a.workflow_code), 'any') && (
                       <button onClick={() => { setFormError(null); setText(''); setCommentOn(a); }}>Comment</button>
                     )}
                   </div></td>
@@ -122,6 +138,17 @@ function InboxContent() {
                 <div className="tx"><b>{n.title}</b>{n.record_code && <> · <span className="code">{n.record_code}</span></>}
                   <small>{new Date(n.created_at).toLocaleString('en-GB')}{n.body ? ` — ${n.body}` : ''}</small></div>
                 {!n.read_at && <button className="btn btn-s btn-sm" onClick={() => act({ action: 'mark_read', notification_id: n.id })}>Mark read</button>}
+              </div>
+            ))}
+          </>)}
+          {tab === 'requests' && (<>
+            {requestAlerts.length === 0 && <div className="empty">Nothing new on your land requests in the last 30 days.</div>}
+            {requestAlerts.map((n) => (
+              <div key={n.id} className={`al ${n.tone === 'd' ? 'd' : n.tone === 'w' ? 'w' : 'i'}`}>
+                <span className="i" />
+                <div className="tx"><b>{n.title}</b> · <span className="code">{n.record_code}</span>{n.province_code && <> <span className="pill">{n.province_code}</span></>}
+                  <small>{n.at ? new Date(n.at).toLocaleString('en-GB') : ''}{n.project ? ` — ${n.project}` : ''}{n.body ? ` — ${n.body}` : ''}</small></div>
+                <Link className="btn btn-s btn-sm" href={n.href}>Open</Link>
               </div>
             ))}
           </>)}

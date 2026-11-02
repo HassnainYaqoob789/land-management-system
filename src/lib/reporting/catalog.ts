@@ -234,7 +234,7 @@ export const DATASETS: DatasetDef[] = [
     fields: [
       f('case_code', 'Case', 'code'), f('lease_no', 'Lease no.', 'code'), prov(), f('district', 'District', 'text'),
       f('project_code', 'Project code', 'code'), f('project_name', 'Project', 'text'),
-      f('land_use_code', 'Land use', 'enum', { options: opt(['Well Location', 'Access Road', 'Pipeline ROW', 'Flowline', 'Camp', 'Water Pond', 'Compressor Station', 'Other']) }),
+      f('land_use_code', 'Land use', 'enum', { options: opt(['Well Location', 'Access Road', 'Pipeline ROW', 'Flowline', 'Camp', 'Water Pond', 'Compressor Station', 'Gathering Station', 'Processing Facility', 'Borrow Area (Green Area)', 'Extra Land', 'Seismic / Exploration', 'Other']) }),
       f('stage_code', 'Workflow stage', 'enum', { options: CASE_STAGES }), f('stage_seq', 'Stage order', 'integer', { aggregates: [] }),
       f('case_date', 'Case date', 'date'), f('effective_date', 'Effective date', 'date'), f('approved_on', 'Approved on', 'date'),
       f('approved_month', 'Approval month', 'code'), f('lease_term_months', 'Term (months)', 'integer', { aggregates: ['avg', 'min', 'max'] }),

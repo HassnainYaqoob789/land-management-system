@@ -148,6 +148,16 @@ export const POST = protect({ permission: ['leases', 'create'] }, async (ctx) =>
       const surveys = await requireLinked(ctx, 'survey', survey_ids, prov, 'survey');
       const lessors = await requireLinked(ctx, 'landowner', lessor_ids, prov, 'landowner');
       if (case_id) await requireLinked(ctx, 'compensation_case', [case_id], prov, 'compensation case');
+      // Created from a land request handed over for a lease: link the request to this lease, once.
+      let fromRequest: any = null;
+      if (body.land_request_id) {
+        fromRequest = (await requireRecord(ctx, 'land_request', String(body.land_request_id), ['requests', 'read'], { forUpdate: true })).row;
+        if (fromRequest.stage_code !== 'Handed over' || fromRequest.handed_over_kind !== 'Lease')
+          throw new HttpError(409, 'That land request was not handed over for a lease.', 'state');
+        if (fromRequest.handed_over_record_id)
+          throw new HttpError(409, `A record (${fromRequest.handed_over_record_code}) was already created from that land request.`, 'state');
+        if (fromRequest.province_code !== prov) throw new HttpError(400, "The project must be in the land request's province.", 'validation');
+      }
 
       const codeRes = await client.query("SELECT lms.next_code('LSE-') as code");
       const leaseCode = codeRes.rows[0].code;
@@ -209,6 +219,11 @@ export const POST = protect({ permission: ['leases', 'create'] }, async (ctx) =>
       );
       const newLease = leaseRes.rows[0];
       await queueFirstStep(client, 'leases', newLease.id);
+      if (fromRequest)
+        await client.query(
+          `UPDATE lms.land_request SET handed_over_record_id = $1, handed_over_record_code = $2, work_stage = $3, work_stage_at = now(),
+                  updated_at = now(), updated_by = $4 WHERE id = $5`,
+          [newLease.id, newLease.code, newLease.stage_code, user.id, fromRequest.id]);
 
       for (const lid of lessors) {
         await client.query(

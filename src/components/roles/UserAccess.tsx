@@ -11,6 +11,7 @@ import React, { useCallback, useState } from 'react';
 import { Modal, Field, Table, Tabs, Loading, ErrorNote, fmtDate } from '@/components/legacy/ui';
 import { send, useApi } from '@/lib/client/api';
 import { groupByResource, scopeLabel } from './model';
+import { expiryState, expiryBadge, untilLabel, dateInputValue } from '@/app/users/grantExpiry';
 
 export interface AccessUser {
   id: string; code: string; username: string; full_name: string; status: string; provinces: string[];
@@ -86,7 +87,8 @@ export default function UserAccess({ user, self, roles, assignments, identities,
 }) {
   const [tab, setTab] = useState<'effective' | 'grants' | 'history' | 'identities' | 'account'>('effective');
   const [form, setForm] = useState({ role_code: '', scope_province: '', expires_on: '', reason: '' });
-  const [confirm, setConfirm] = useState<null | { kind: 'revoke'; a: Assignment } | { kind: 'unlink'; i: Identity } | { kind: 'anonymise' } | { kind: 'glass' }>(null);
+  const [confirm, setConfirm] = useState<null | { kind: 'revoke' | 'expiry'; a: Assignment } | { kind: 'unlink'; i: Identity } | { kind: 'anonymise' } | { kind: 'glass' }>(null);
+  const [until, setUntil] = useState({ on: '', none: false });
   const [reason, setReason] = useState('');
   const [typed, setTyped] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +108,11 @@ export default function UserAccess({ user, self, roles, assignments, identities,
     try { await send('POST', '/api/users', body, { also: ['/api/roles'] }); setNotice(done); after?.(); }
     catch (e: any) { setError(e.message); } finally { setBusy(false); }
   };
-  const openConfirm = (c: NonNullable<typeof confirm>) => { setReason(''); setTyped(''); setError(null); setConfirm(c); };
+  const openConfirm = (c: NonNullable<typeof confirm>) => {
+    setReason(''); setTyped(''); setError(null);
+    if (c.kind === 'expiry') setUntil({ on: dateInputValue(c.a.expires_at), none: !c.a.expires_at });
+    setConfirm(c);
+  };
 
   const tabs: [typeof tab, string][] = [['effective', 'Effective permissions'], ['grants', `Role grants (${mine.length})`], ['history', 'History']];
   if (myIds.length || can.update) tabs.push(['identities', `Sign-in identities (${myIds.length})`]);
@@ -130,10 +136,18 @@ export default function UserAccess({ user, self, roles, assignments, identities,
             <tr key={a.id}>
               <td>{a.role_name}{a.role_status && a.role_status !== 'active' && <> <span className="b b-w">{a.role_status === 'inactive' ? 'suspended role' : a.role_status}</span></>}</td>
               <td>{a.scope_province || 'all their provinces'}</td><td>{fmtDate(a.granted_at)}</td><td>{a.granted_by_name || '—'}</td>
-              <td>{a.expires_at ? <>{fmtDate(a.expires_at)}{a.expired && <> <span className="b b-d">expired</span></>}</> : '—'}</td>
+              <td>{(() => {
+                const st = a.expired ? { ...expiryState(a.expires_at), tone: 'expired' as const } : expiryState(a.expires_at);
+                const badge = expiryBadge(st);
+                return st.at ? <>{untilLabel(st.at)}{badge && <> <span className={`b ${st.tone === 'expired' ? 'b-d' : 'b-w'}`}>{badge}</span></>}</> : 'no end date';
+              })()}</td>
               <td>{a.reason || '—'}</td>
               <td>{can.assign && !(self && a.role_code === SYSADMIN) && (
-                <div className="acts"><button type="button" className="del" onClick={() => openConfirm({ kind: 'revoke', a })}>Revoke</button></div>)}</td>
+                <div className="acts">
+                  {!self && a.role_code !== SYSADMIN && (a.role_status ?? 'active') === 'active' &&
+                    <button type="button" onClick={() => openConfirm({ kind: 'expiry', a })}>{a.expires_at ? 'Change end date' : 'Set end date'}</button>}
+                  <button type="button" className="del" onClick={() => openConfirm({ kind: 'revoke', a })}>Revoke</button>
+                </div>)}</td>
             </tr>
           ))}
         </Table>
@@ -161,7 +175,7 @@ export default function UserAccess({ user, self, roles, assignments, identities,
                   {scopeOptions.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </Field>
-              <Field label="Expires on" htmlFor="uaExp" hint="Optional. The grant stops at the end of that day.">
+              <Field label="Valid until" htmlFor="uaExp" hint="Optional, for temporary access. The grant stops at the end of that day; empty means no end date.">
                 <input id="uaExp" type="date" min={tomorrow()} value={form.expires_on} onChange={(e) => setForm({ ...form, expires_on: e.target.value })} />
               </Field>
             </>) : (
@@ -204,7 +218,8 @@ export default function UserAccess({ user, self, roles, assignments, identities,
       </>)}
 
       <Modal open={!!confirm} stacked size="sm" icon="warn" onClose={closeConfirm}
-        title={confirm?.kind === 'revoke' ? `Revoke ${confirm.a.role_name}` : confirm?.kind === 'unlink' ? 'Unlink sign-in identity'
+        title={confirm?.kind === 'revoke' ? `Revoke ${confirm.a.role_name}` : confirm?.kind === 'expiry' ? `End date — ${confirm.a.role_name}`
+          : confirm?.kind === 'unlink' ? 'Unlink sign-in identity'
           : confirm?.kind === 'anonymise' ? `Anonymise ${user.username}` : 'Emergency access'}
         footer={<>
           {error && <span className="u-danger u-flex-1" role="alert">{error}</span>}
@@ -215,6 +230,11 @@ export default function UserAccess({ user, self, roles, assignments, identities,
           e.preventDefault();
           if (!confirm) return;
           if (confirm.kind === 'revoke') post({ action: 'revoke_role', assignment_id: confirm.a.id, reason }, 'Role revoked.', closeConfirm);
+          else if (confirm.kind === 'expiry') {
+            if (!until.none && !until.on) { setError('Choose the last day of access, or tick "No end date".'); return; }
+            post({ action: 'set_role_expiry', assignment_id: confirm.a.id, reason, expires_at: until.none ? null : endOfDay(until.on) },
+              until.none ? 'End date removed.' : `Access now ends on ${until.on}.`, closeConfirm);
+          }
           else if (confirm.kind === 'unlink') post({ action: 'unlink_identity', identity_id: confirm.i.id, reason }, 'Identity unlinked.', closeConfirm);
           else if (confirm.kind === 'anonymise') post({ action: 'anonymise_user', user_id: user.id, reason, confirm: typed }, 'Account anonymised.', closeConfirm);
           else post({ action: 'set_break_glass', user_id: user.id, on: !user.is_break_glass }, 'Emergency access updated.', closeConfirm);
@@ -222,6 +242,16 @@ export default function UserAccess({ user, self, roles, assignments, identities,
           {confirm?.kind === 'glass' ? (
             <p>{user.is_break_glass ? 'Remove the emergency-access designation from this account?' : 'Designate this account for emergency (break-glass) access?'}</p>
           ) : (<>
+            {confirm?.kind === 'expiry' && (<>
+              <p className="note u-mb-10">Currently {confirm.a.expires_at ? untilLabel(new Date(confirm.a.expires_at)) : 'no end date'}.
+                The grant is replaced by an identical one with the new end date; both steps are recorded in the audit trail.</p>
+              <Field label="Valid until" htmlFor="uaUntil" hint="The grant stops at the end of that day.">
+                <input id="uaUntil" type="date" min={tomorrow()} disabled={until.none} required={!until.none} value={until.on}
+                  onChange={(e) => setUntil({ ...until, on: e.target.value })} />
+              </Field>
+              <label className="u-mb-10" htmlFor="uaNoEnd"><input id="uaNoEnd" type="checkbox" checked={until.none}
+                onChange={(e) => setUntil({ ...until, none: e.target.checked })} /> No end date (permanent until revoked)</label>
+            </>)}
             {confirm?.kind === 'anonymise' && (<>
               <p className="u-danger u-mb-10">This cannot be undone.</p>
               <Field label={`Type ${user.username} to confirm`} required htmlFor="uaTyped">

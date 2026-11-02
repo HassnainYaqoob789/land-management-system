@@ -13,6 +13,7 @@ const LIST_SQL = `
          lms.user_full_name(lr.regional_mgr_id) AS regional_mgr_name,
          lms.user_full_name(lr.land_affairs_id) AS land_affairs_name,
          lms.user_full_name(lr.handed_over_by) AS handed_over_by_name,
+         lms.user_full_name(lr.completed_by) AS completed_by_name,
          (lr.created_by = $1) AS is_mine,
          a.version AS area_version, a.area_acres AS polygon_acres, a.centroid_lat, a.centroid_lng
     FROM lms.land_request lr
@@ -48,6 +49,7 @@ export const GET = protect({ permission: ['requests', 'read'] }, async (ctx) => 
              count(*) FILTER (WHERE stage_code = 'Returned') AS returned,
              count(*) FILTER (WHERE stage_code = 'Approved') AS approved,
              count(*) FILTER (WHERE stage_code = 'Handed over') AS handed_over,
+             count(*) FILTER (WHERE stage_code = 'Completed') AS completed,
              count(*) FILTER (WHERE stage_code = 'Rejected') AS rejected
         FROM lms.land_request
        WHERE (stage_code <> 'Draft' OR created_by = $1)${province && province !== 'ALL' ? ' AND province_code = $2' : ''}`,
@@ -88,7 +90,22 @@ async function detail(ctx: Ctx, id: string) {
     project: { lat: pr.rows[0]?.project_lat ?? null, lng: pr.rows[0]?.project_lng ?? null, code: request.project_code },
     centroid: ring.length ? centroid(ring) : null,
   });
-  return json({ request, areas, parcels, overlaps, warnings });
+  // Progress of the land work. The stage itself is on the request (work_stage, 0060), so the
+  // requester sees it without access to the acquisition register; the details below only
+  // for a reader of acquisitions.
+  let work: any = null;
+  if (request.handed_over_kind === 'Acquisition') {
+    const stages = (await ctx.client.query(
+      `SELECT code, label FROM lms.workflow_stage WHERE workflow_code = 'acquisitions' AND NOT is_terminal ORDER BY seq`)).rows;
+    let acquisition = null;
+    if (request.handed_over_record_id && ctx.can('acquisitions', 'read', { province: rec.province }))
+      acquisition = (await ctx.client.query(
+        `SELECT a.id, a.code, a.mode, a.area_required, a.target_handover_date, a.stage_code, a.updated_at,
+                (SELECT count(*) FROM lms.acquisition_survey x WHERE x.acquisition_id = a.id)::int AS parcels
+           FROM lms.acquisition a WHERE a.id = $1`, [request.handed_over_record_id])).rows[0] ?? null;
+    work = { kind: 'Acquisition', stages, acquisition };
+  }
+  return json({ request, areas, parcels, overlaps, warnings, work });
 }
 
 /** The latest polygon of every visible request, for the map's "Land requests" layer. */

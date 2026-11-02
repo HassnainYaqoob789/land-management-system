@@ -8,6 +8,9 @@
 | 3b | AI Voice Sync Script | [03b_AI_VOICE_SYNC_SCRIPT.md](03b_AI_VOICE_SYNC_SCRIPT.md) | Recording with an AI voice: 38 short clips, the voice reads each form value as you enter it, a pause-tagged text file per clip in `export/AI voice segments/` |
 | 4 | Architecture & Workflow Diagram | [04_ARCHITECTURE_WORKFLOW_DIAGRAM.html](04_ARCHITECTURE_WORKFLOW_DIAGRAM.html) (open in a browser, prints to A3 landscape) · [Mermaid version](04_ARCHITECTURE_WORKFLOW_DIAGRAM.md) · [PNG](04_ARCHITECTURE_WORKFLOW_DIAGRAM.png) | Stakeholder slides |
 | 5 | Demo Recording Data & Test Scenarios | [05_DEMO_RECORDING_DATA_AND_SCENARIOS.md](05_DEMO_RECORDING_DATA_AND_SCENARIOS.md) | Copy-paste values, in recording order, with the expected result of each step |
+| 6 | **Client Demo Walkthrough (2 Nov 2026 requirements)** | [06_CLIENT_DEMO_WALKTHROUGH.md](06_CLIENT_DEMO_WALKTHROUGH.md) | The live client demo: all 8 client points in 12 parts, which account does what, every value to enter and the expected result; rehearsed end to end (63 checks) |
+| 6b | Short Demo (30 min) | [06b_SHORT_DEMO.md](06b_SHORT_DEMO.md) | Click-by-click demo script: Part 0 data preparation, then 6 parts (which account, which menu, what to type, what appears) |
+| 7 | Team Guide: New Update | [07_TEAM_GUIDE_NEW_UPDATE.md](07_TEAM_GUIDE_NEW_UPDATE.md) | For our team: what changed, how each flow works (with diagrams), setup, 27-point test checklist, how to give the demo, troubleshooting |
 
 Deliverables 2, 3 and 5 use the same sequence and the same fictional records: project DHRK-301, khasras 451/2 and 452/1 in Deh Jarwar, the Mahar brothers, REQ-2026-0004, ACQ-2026-0004, CC-2026-0012 and VCH-2026-00034.
 
@@ -21,6 +24,9 @@ Word (.docx) and PDF copies of every deliverable. They open on any computer, wit
 |---|---|---|
 | 1 | `01 LMS Complete User Manual.docx` | `01 LMS Complete User Manual.pdf` (39 pages) |
 | 2 | `02 LMS Key Features User Manual.docx` | `02 LMS Key Features User Manual.pdf` (12 pages) |
+| 6 | `06 LMS Client Demo Walkthrough.docx` | `06 LMS Client Demo Walkthrough.pdf` |
+| 6b | `06b LMS Short Demo (30 min).docx` | `06b LMS Short Demo (30 min).pdf` |
+| 7 | `07 LMS Team Guide - New Update.docx` | `07 LMS Team Guide - New Update.pdf` |
 | 3 | `03 LMS Key Features Demo Video Script.docx` | `03 LMS Key Features Demo Video Script.pdf` (11 pages) |
 | 3b | `03b LMS AI Voice Sync Script.docx` | `03b LMS AI Voice Sync Script.pdf` |
 | 4 | — | `04 LMS Architecture and Workflow Diagram.pdf` (one long page) and `.png` |

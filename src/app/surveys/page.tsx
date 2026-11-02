@@ -54,6 +54,12 @@ function SurveysContent() {
   const set = (k: string) => (v: string) => setForm((f: any) => ({ ...f, [k]: v }));
   const adminUnits = (units?.admin_units ?? []).filter((u: any) => u.province_code === form.province_code);
   const areaUnits = lookupOf(ref, 'measurement_unit');
+  // The province's own units first, in its order (Settings → Land units); every other unit stays available.
+  const provUnitCodes: string[] = (units?.province_units ?? []).filter((u: any) => u.province_code === form.province_code)
+    .sort((x: any, y: any) => x.display_order - y.display_order).map((u: any) => u.unit_code);
+  const provUnits = provUnitCodes.map((c) => areaUnits.find((u) => u.code === c)).filter(Boolean) as typeof areaUnits;
+  const otherUnits = areaUnits.filter((u) => !provUnitCodes.includes(u.code));
+  const ownSize = (units?.province_factors ?? []).find((f: any) => f.province_code === form.province_code && f.unit_code === form.recorded_unit);
   const areaBad = form.recorded_area !== '' && (!AREA_RE.test(String(form.recorded_area).trim()) || Number(form.recorded_area) <= 0);
   const areaChanged = !initialArea || initialArea.recorded_area !== String(form.recorded_area).trim() || initialArea.recorded_unit !== form.recorded_unit;
 
@@ -211,12 +217,18 @@ function SurveysContent() {
           <Field label="Recorded area" required htmlFor="svArea"
             hint={areaBad ? <span className="u-danger">A positive number with at most 4 decimals</span>
               : initialArea?.legacy && !areaChanged ? 'Captured before the recorded unit was kept: shown in acres. Enter the area as the revenue record states it to record its unit.'
+                : ownSize ? `As the revenue record states it. In ${form.province_code}, 1 acre = ${Math.round(Number(ownSize.units_per_acre) * 10000) / 10000} ${form.recorded_unit}.`
                 : 'As the revenue record states it, in that record\'s unit'}>
             <div className="area-in">
               <input id="svArea" inputMode="decimal" required className={areaBad ? 'err' : undefined} aria-invalid={areaBad} value={form.recorded_area}
                 onChange={(e) => set('recorded_area')(e.target.value)} />
               <select aria-label="Recorded unit" required value={form.recorded_unit} onChange={(e) => set('recorded_unit')(e.target.value)} disabled={!areaUnits.length}>
-                {areaUnits.map((u) => <option key={u.code} value={u.code}>{u.name}</option>)}
+                {provUnits.length ? (
+                  <>
+                    <optgroup label={`Units of ${form.province_code}`}>{provUnits.map((u) => <option key={u.code} value={u.code}>{u.name}</option>)}</optgroup>
+                    <optgroup label="Other units">{otherUnits.map((u) => <option key={u.code} value={u.code}>{u.name}</option>)}</optgroup>
+                  </>
+                ) : areaUnits.map((u) => <option key={u.code} value={u.code}>{u.name}</option>)}
               </select>
             </div>
           </Field>

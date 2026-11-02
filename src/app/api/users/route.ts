@@ -20,7 +20,7 @@ const MAX_EXPIRY_MS = 10 * 365 * 24 * 3600 * 1000;
 const GATES: Record<string, [string, string]> = {
   create_user: ['users', 'create'], set_status: ['users', 'update'], update_user: ['users', 'update'],
   reset_mfa: ['users', 'reset_mfa'], revoke_sessions: ['users', 'revoke_sessions'],
-  assign_role: ['users', 'assign'], revoke_role: ['users', 'assign'],
+  assign_role: ['users', 'assign'], revoke_role: ['users', 'assign'], set_role_expiry: ['users', 'assign'],
   bulk_assign: ['users', 'assign'], bulk_revoke: ['users', 'assign'],
   anonymise_user: ['users', 'delete'], set_break_glass: ['identity_settings', 'configure'], unlink_identity: ['users', 'update'],
 };
@@ -163,6 +163,7 @@ export const POST = gatedMutation((b) => {
       case 'revoke_sessions': return await revokeSessions(ctx, b);
       case 'assign_role': return await assignRole(ctx, b);
       case 'revoke_role': return await revokeRole(ctx, b);
+      case 'set_role_expiry': return await setRoleExpiry(ctx, b);
       case 'bulk_assign': return await bulkAssign(ctx, b);
       case 'bulk_revoke': return await bulkRevoke(ctx, b);
       case 'anonymise_user': return await anonymise(ctx, b);
@@ -296,7 +297,8 @@ function parseExpiry(v: unknown): Date | null {
   if (v === undefined || v === null || v === '') return null;
   if (typeof v !== 'string' || v.length > 40 || !/^\d{4}-\d{2}-\d{2}([T ][\d:.]+(Z|[+-]\d{2}:?\d{2})?)?$/.test(v))
     throw new HttpError(400, 'The expiry must be a date.', 'validation');
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T23:59:59Z` : v);
+  // A date alone means the end of that day in Pakistan (PKT, UTC+5, no daylight saving), where the users are.
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T23:59:59+05:00` : v);
   if (Number.isNaN(d.getTime())) throw new HttpError(400, 'The expiry must be a date.', 'validation');
   if (d.getTime() <= Date.now() + 60_000) throw new HttpError(400, 'The expiry must be in the future.', 'validation');
   if (d.getTime() > Date.now() + MAX_EXPIRY_MS) throw new HttpError(400, 'The expiry must be within ten years.', 'validation');
@@ -354,6 +356,60 @@ async function revokeRole(ctx: Ctx, b: Record<string, any>) {
   // The grant's reason stays; the revocation carries its own (0041).
   await ctx.client.query(`UPDATE iam.user_role SET revoked_at = now(), revoke_reason = $2 WHERE id = $1 AND revoked_at IS NULL`, [id, reason]);
   return json({ success: true });
+}
+
+/**
+ * Change or remove the end date ("valid until") of an open grant, e.g. to extend
+ * an exploration planner's temporary access. The database never edits a grant
+ * (iam.tg_user_role_guard: "a role assignment cannot be edited; revoke it and
+ * grant another"), so this revokes the grant and grants the same role, province
+ * and project again with the new end date, in one savepoint: both happen or
+ * neither. The new grant passes every check a first grant does (role active,
+ * within the granter's authority and provinces, not your own account, account
+ * not deactivated, separation of duties), and both steps are in the audit trail.
+ * expires_at: an ISO date-time in the future, or null / '' for no end date.
+ */
+async function setRoleExpiry(ctx: Ctx, b: Record<string, any>) {
+  const id = uuid(b, 'assignment_id', 'assignment');
+  const reason = text(b, 'reason', { min: 5, max: 300 });
+  if (b.expires_at === undefined) throw new HttpError(400, 'Give the new end date, or null for no end date.', 'validation');
+  const expires = parseExpiry(b.expires_at);
+  const c = ctx.client;
+  const a = (await c.query(
+    `SELECT ur.id, ur.user_id, ur.role_id, ur.scope_province::text AS scope_province, ur.scope_project, ur.expires_at, ur.reason,
+            r.code, r.status, iam.actor_covers_role(r.id) AS grantable
+       FROM iam.user_role ur JOIN iam.role r ON r.id = ur.role_id
+      WHERE ur.id = $1 AND ur.revoked_at IS NULL`, [id])).rows[0];
+  if (!a) throw new HttpError(404, 'Assignment not found or already revoked.', 'not_found');
+  if (a.user_id === ctx.user.id) throw new HttpError(403, 'You cannot change your own roles.', 'forbidden');
+  if (a.code === SYSADMIN) throw new HttpError(400, 'A system administrator grant cannot be time-limited.', 'validation');
+  if (a.status !== 'active')
+    throw new HttpError(409, 'The role is suspended or retired; its grants cannot be changed until it is active again.', 'conflict');
+  if (!a.grantable) throw new HttpError(403, 'You cannot grant a role containing permissions you do not hold, or above your own database tier.', 'forbidden');
+  if (a.scope_province && !(await grantableProvinces(ctx)).includes(a.scope_province))
+    throw new HttpError(403, `This grant is limited to ${a.scope_province}, which you may not grant.`, 'forbidden');
+  const before = a.expires_at ? new Date(a.expires_at).getTime() : null;
+  if (before === (expires ? expires.getTime() : null)) return json({ success: true, unchanged: true, assignment: { id: a.id, user_id: a.user_id } });
+
+  const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : 'no end date');
+  const revokeReason = `Valid until changed from ${day(a.expires_at ? new Date(a.expires_at) : null)} to ${day(expires)}: ${reason}`.slice(0, 300);
+  await c.query('SAVEPOINT role_expiry');
+  try {
+    const r = await c.query(`UPDATE iam.user_role SET revoked_at = now(), revoke_reason = $2 WHERE id = $1 AND revoked_at IS NULL`, [id, revokeReason]);
+    if (!r.rowCount) throw new HttpError(409, 'Someone else changed this grant at the same moment. Reload and try again.', 'conflict');
+    // The grant keeps the reason it was first given for; the change carries its own (on the revocation above).
+    const g = await c.query(
+      `INSERT INTO iam.user_role (user_id, role_id, scope_province, scope_project, expires_at, reason)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, user_id, expires_at`,
+      [a.user_id, a.role_id, a.scope_province, a.scope_project, expires, (a.reason || reason).slice(0, 300)]);
+    await c.query('RELEASE SAVEPOINT role_expiry');
+    return json({ success: true, assignment: g.rows[0], replaced: id });
+  } catch (e: any) {
+    await c.query('ROLLBACK TO SAVEPOINT role_expiry');
+    await c.query('RELEASE SAVEPOINT role_expiry');
+    if (e?.code === '22023') throw new HttpError(400, refusalText(e), 'validation');
+    throw e;
+  }
 }
 
 function userIds(v: unknown): string[] {

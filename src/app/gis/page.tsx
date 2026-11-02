@@ -32,7 +32,7 @@ const KML_COLOUR = PAL.purple;
 const DRAW_COLOUR = '#e0521a';
 // Land-request polygons by stage (plan section 5.3).
 const REQUEST_COLOURS: [string, string][] = [
-  ['Draft', PAL.grey], ['Under review', PAL.amber], ['Returned', '#c9a400'], ['Approved', PAL.green], ['Handed over', PAL.blue], ['Rejected', PAL.red],
+  ['Draft', PAL.grey], ['Under review', PAL.amber], ['Returned', '#c9a400'], ['Approved', PAL.green], ['Handed over', PAL.blue], ['Completed', '#0b6b3a'], ['Rejected', PAL.red],
 ];
 const stageGroup = (s: string) => (['Submitted', 'Under Review - Ops', 'Under Review - Regional', 'Under Review - Land Affairs'].includes(s) ? 'Under review' : s);
 const REQUEST_COLOUR_EXPR: any = ['match', ['get', 'group'], ...REQUEST_COLOURS.flat(), PAL.grey];
