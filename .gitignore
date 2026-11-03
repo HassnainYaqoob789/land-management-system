@@ -43,3 +43,7 @@ docs/deploy/export/
 
 # client messages (raw), kept local
 clientrequirement.md
+
+# ---- internal AI context + internal-only material (keep local, never publish) ----
+CLAUDE.md
+docs/deploy/login-alert-sample.png
