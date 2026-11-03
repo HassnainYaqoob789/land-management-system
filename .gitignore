@@ -47,3 +47,4 @@ clientrequirement.md
 # ---- internal AI context + internal-only material (keep local, never publish) ----
 CLAUDE.md
 docs/deploy/login-alert-sample.png
+docs/manuals/Client User Manual/

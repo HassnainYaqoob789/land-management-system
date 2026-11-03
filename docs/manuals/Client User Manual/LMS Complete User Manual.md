@@ -6,6 +6,8 @@
 | **Audience** | Land officers, negotiators, legal advisors, field approvers, Manager Land (HO), Finance, internal audit, exploration planners, land-request reviewers, system administrators, and stakeholders |
 | **Manual version** | 2.0, 3 November 2026 |
 | **Describes** | The application as released to Mari Energies (November 2026) |
+| **Prepared by** | **Alisons Technology** |
+| **Confidentiality** | Internal — contains demonstration sign-in credentials (see 3.2). Do not distribute outside Mari Energies. |
 
 > **How to read this manual.** Chapters 1–3 explain the ideas and the rules that apply everywhere. Chapter 4 describes each screen in the order of the menu. Chapter 5 walks through the end-to-end business processes that cross several screens. Use the table of contents to jump straight to your task.
 
@@ -149,7 +151,7 @@ If no SSO method is configured, the tab says that it is unavailable. The adminis
 
 Under **Other ways to sign in**, click **Sign in with a passkey** and confirm with your device (fingerprint, face or PIN). This works only if you registered a passkey on that device (see [4.7.6](#476-account--security)) and the server runs on HTTPS.
 
-> **Demonstration accounts.** Where the system is set up for demonstration, the sign-in page lists ready-made accounts. Each account's password is hidden and is shown only when you click **Show**; the **Use** button fills in the username and password for you without revealing them.
+> **Demonstration accounts.** A set of ready-made demonstration accounts is provided for walking through the system. Their usernames, designations and passwords are listed in [section 3.2](#32-roles-and-the-demo-accounts); sign in with any of them on the **Username & password** tab.
 
 **Rules that protect your account**
 
@@ -275,6 +277,37 @@ The accounts below are the demonstration accounts used throughout this manual. T
 | **Land Request Reviewer** | `dirops` | all | Director Operations | Tier 2 decision on land requests. |
 | | `regmgr` (SND), `regmgrqta` (BAL), `regmgrpnj` (PNJ + KPK) | own | Regional Manager | Tier 3 decision on land requests. |
 | **Demonstration (all screens)** | `director` | all | All business positions | A single account for walking through the whole system. It opens **every** screen and can take **every** action **except releasing a payment cheque**. The segregation-of-duties rules still apply to it (one person cannot decide two steps of the same record, and whoever raises or verifies a voucher cannot release it). |
+
+**Sign-in credentials.** Type the username and password on the **Username & password** tab. For privacy the sign-in page no longer lists these accounts, so this manual is the reference — keep it confidential. They are demonstration accounts; for production, change or remove them.
+
+| Username | Name | Designation | Province(s) | What this account can do | Password |
+|---|---|---|---|---|---|
+| `director` | Asif Rehman | Director (demo, all tabs) | All | Every tab, every action except payment release | `Demo-cVDOVn4gzyFrnaat` |
+| `admin` | Asma Rahim | System Administrator | All | System Administrator | `861458146d0e45-Dm7` |
+| `audit` | Tariq Mehmood | Audit Officer | All | Audit Officer | `8f23325ad9b249-Dm7` |
+| `dirops` | Javed Akhtar | Director Operations | All | Land requests tier 2: approves, returns or rejects; every province | `UAYFjNPUsUbk9Y-Dm7` |
+| `dmfield` | Nadia Baig | DM / Team Lead (Field) | SND | DM / Team Lead (Field) | `231fa7d3f2f04a-Dm7` |
+| `dmqta` | Benazir Raisani | DM / Team Lead (Field) | BAL | DM / Team Lead (Field) | `f435a2d2cab948-Dm7` |
+| `explorer` | Usman Ghani | Exploration Planner | SND | Draws land on the GIS map and raises land requests (Sindh); no landowner data, no approvals | `kPFWNH6ZroZt1C-Dm7` |
+| `explorerqta` | Kamran Bugti | Exploration Planner | BAL | Draws land on the GIS map and raises land requests (Balochistan) | `2xMbLpdHYdxBrF-Dm7` |
+| `finance` | Shazia Noor | Finance Officer | All | Finance Officer | `e1a43a1896a846-Dm7` |
+| `landaffairs` | Zubair Soomro | DM / TL Land Affairs | SND | Land requests tier 4 (final approval) for Sindh | `IP8GS4Gg2RTi3c-Dm7` |
+| `landaffpnj` | Farah Khattak | DM / TL Land Affairs | KPK, PNJ | Land requests tier 4 (final approval) for Punjab and KPK | `T4KOkfZBOBks8H-Dm7` |
+| `landaffqta` | Gul Bano Rind | DM / TL Land Affairs | BAL | Land requests tier 4 (final approval) for Balochistan | `eBQ0Et28BleRni-Dm7` |
+| `legal` | Ayesha Siddiqui | Legal Advisor | All | Legal Advisor | `b45e54ef4c7a43-Dm7` |
+| `lofield` | Sanaullah Khoso | Land Officer | SND | Land Officer | `cfb37e6c4cc548-Dm7` |
+| `lopnj` | Waqar Lashari | Land Officer | KPK, PNJ | Land Officer | `443857be5d1347-Dm7` |
+| `loquetta` | Zarak Baloch | Land Officer | BAL | Land Officer | `b637b78d9f3647-Dm7` |
+| `mland` | Imran Qadir | Manager Land (HO) | All | Manager Land (HO) | `6d91a5f3e3de4e-Dm7` |
+| `nego` | Bilal Chandio | Negotiation Officer | SND | Negotiation Officer | `ea1740800f454e-Dm7` |
+| `negoqta` | Samiullah Marri | Negotiation Officer | BAL | Negotiation Officer | `bf49bd4078b145-Dm7` |
+| `regmgr` | Sadia Memon | Regional Manager (Sindh) | SND | Land requests tier 3 for Sindh | `5TZaiaYtCQU8z9-Dm7` |
+| `regmgrpnj` | Shahid Leghari | Regional Manager (Punjab/KPK) | KPK, PNJ | Land requests tier 3 for Punjab and KPK | `Hbgc6DEUyxFsqR-Dm7` |
+| `regmgrqta` | Naseer Kakar | Regional Manager (Balochistan) | BAL | Land requests tier 3 for Balochistan | `SgCSBTLOT98lsx-Dm7` |
+| `sradmin` | Faisal Shaikh | Sr. Administrator LMS (Field) | SND | Sr. Administrator LMS (Field) | `11dd39a97f0641-Dm7` |
+| `sradmpnj` | Rukhsana Bibi | Sr. Administrator LMS (Field) | KPK, PNJ | Sr. Administrator LMS (Field) | `32f2f33db06b49-Dm7` |
+| `sradmqta` | Rahim Jamali | Sr. Administrator LMS (Field) | BAL | Sr. Administrator LMS (Field) | `4f7c17882e924c-Dm7` |
+| `viewer` | Hina Jamal | Analyst | All | Analyst | `a240db801e3e4d-Dm7` |
 
 ### 3.3 What each role can do, by module
 
