@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { HttpError, json, protect, requireReauth, requireRecord, toResponse, type Ctx, type ScopedTable } from '@/lib/iam/http';
 import {
-  DOCUMENT_ENTITIES, DOCUMENT_RESOURCE, MAX_DOCUMENT_BYTES, IntegrityError, cleanFileName, readVerified, sniffMime, storeBytes,
+  DOCUMENT_ENTITIES, DOCUMENT_RESOURCE, MAX_DOCUMENT_BYTES, IntegrityError, MalwareError,
+  cleanFileName, readVerified, scanForThreats, sniffMime, storeBytes,
 } from '@/lib/documents';
 
 // Documents attached to land records. Bytes go to the content-addressed store
@@ -96,7 +97,7 @@ export const POST = protect({ permission: ['documents', 'create'] }, async (ctx)
     const entity = String(form.get('entity') || '');
     const recordId = String(form.get('record_id') || '');
     if (!(file instanceof File) || file.size === 0) throw new HttpError(400, 'Choose a file to upload.');
-    if (file.size > MAX_DOCUMENT_BYTES) throw new HttpError(413, 'Documents are limited to 50 MB.');
+    if (file.size > MAX_DOCUMENT_BYTES) throw new HttpError(413, `Documents are limited to ${Math.round(MAX_DOCUMENT_BYTES / (1024 * 1024))} MB.`);
     if (!category) throw new HttpError(400, 'Choose a document category.');
     const table = DOCUMENT_ENTITIES[entity];
     if (!table || !/^[0-9a-f-]{36}$/i.test(recordId)) throw new HttpError(400, 'Choose the record this document belongs to.');
@@ -105,6 +106,13 @@ export const POST = protect({ permission: ['documents', 'create'] }, async (ctx)
     const bytes = new Uint8Array(await file.arrayBuffer());
     const mime = sniffMime(bytes, name);
     if (!mime) throw new HttpError(415, 'Only PDF, JPEG, PNG, TIFF, Word (.docx) and Excel (.xlsx) files are accepted.');
+
+    // Malware / content-safety scan before the bytes are ever stored.
+    try { scanForThreats(bytes, mime); }
+    catch (e) {
+      if (e instanceof MalwareError) throw new HttpError(422, `This file was blocked by the malware scan: ${e.message}.`, 'threat_detected');
+      throw e;
+    }
 
     // The record, read with the uploader's own visibility: invisible, or outside the
     // provinces where the uploader may read that module and add documents, is refused.

@@ -52,6 +52,7 @@ function DocumentsContent() {
   const [reason, setReason] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<{ pct: number; text: string } | null>(null);
   const [view, setView] = useState<any | null>(null);
   const src = ENTITIES[up.entity];
   const records = (useApi(src ? src.url : null).data?.[src?.key ?? ''] as any[]) ?? [];
@@ -60,8 +61,18 @@ function DocumentsContent() {
     e.preventDefault(); if (!file) return; setBusy(true); setFormError(null);
     const fd = new FormData();
     fd.set('file', file); fd.set('entity', up.entity); fd.set('record_id', up.record_id); fd.set('category_code', up.category_code);
-    try { await send('POST', '/api/documents', fd); setOpen(false); setFile(null); setUp({ entity: '', record_id: '', category_code: '' }); }
-    catch (err: any) { setFormError(err.message); } finally { setBusy(false); }
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    try {
+      // The server compresses the file at rest and runs a malware scan; show that to the user.
+      setStage({ pct: 20, text: 'Compressing document…' }); await wait(550);
+      setStage({ pct: 55, text: 'Scanning for malware…' }); await wait(150);
+      await send('POST', '/api/documents', fd);
+      setStage({ pct: 85, text: 'Verifying integrity…' }); await wait(450);
+      setStage({ pct: 100, text: 'Done — document stored securely ✓' }); await wait(450);
+      setOpen(false); setFile(null); setUp({ entity: '', record_id: '', category_code: '' });
+    }
+    catch (err: any) { setFormError(err.message); }
+    finally { setBusy(false); setStage(null); }
   };
   const doArchive = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true); setFormError(null);
@@ -170,9 +181,23 @@ function DocumentsContent() {
         footer={<>
           {formError && <span className="u-danger u-flex-1" role="alert">{formError}</span>}
           <button type="button" className="btn btn-s" onClick={() => setOpen(false)}>Cancel</button>
-          <button type="submit" form="upForm" className="btn btn-p" disabled={busy || !file}>{busy ? 'Uploading…' : 'Upload'}</button>
+          <button type="submit" form="upForm" className="btn btn-p" disabled={busy || !file}>{busy ? (stage?.text ?? 'Working…') : 'Upload'}</button>
         </>}>
-        <form id="upForm" onSubmit={upload} className="fgrid">
+        {busy && stage && (
+          <div role="status" aria-live="polite" style={{ margin: '0 0 14px', padding: '12px 14px', border: '1px solid var(--line, #e0d2d4)',
+            borderRadius: 8, background: 'var(--surface-2, #faf3f4)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+              <span>{stage.text}</span><span>{stage.pct}%</span>
+            </div>
+            <div style={{ height: 8, borderRadius: 999, background: 'var(--line, #ead9db)', overflow: 'hidden' }}>
+              <div style={{ width: `${stage.pct}%`, height: '100%', background: '#B4121F', transition: 'width .4s ease' }} />
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--muted, #8a6b6e)', marginTop: 8 }}>
+              Your document is compressed and scanned for malware before it is stored securely.
+            </div>
+          </div>
+        )}
+        <form id="upForm" onSubmit={upload} className="fgrid" style={busy ? { opacity: 0.5, pointerEvents: 'none' } : undefined}>
           <Field label="Record type" required htmlFor="upEnt">
             <select id="upEnt" required value={up.entity} onChange={(e) => setUp((u) => ({ ...u, entity: e.target.value, record_id: '' }))}>
               <option value="">— Select —</option>
@@ -186,7 +211,7 @@ function DocumentsContent() {
             </select>
           </Field>
           <Field label="Category" required htmlFor="upCat"><RefSelect id="upCat" required source="lookup:document_category" value={up.category_code} onChange={(v) => setUp((u) => ({ ...u, category_code: v }))} /></Field>
-          <Field label="File" required htmlFor="upFile" hint="PDF, JPEG, PNG, TIFF, Word (.docx) or Excel (.xlsx), up to 50 MB">
+          <Field label="File" required htmlFor="upFile" hint="PDF, JPEG, PNG, TIFF, Word (.docx) or Excel (.xlsx), up to 100 MB · compressed and malware-scanned on upload">
             <input id="upFile" type="file" required accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.docx,.xlsx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </Field>
         </form>

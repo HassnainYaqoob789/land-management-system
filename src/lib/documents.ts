@@ -8,11 +8,12 @@
 // ./.data/documents, which is git-ignored.
 
 import { createHash } from 'node:crypto';
+import { gzipSync, gunzipSync } from 'node:zlib';
 import { mkdir, readFile, writeFile, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { isProd } from '@/lib/iam/config';
 
-export const MAX_DOCUMENT_BYTES = 50 * 1024 * 1024;   // lms.document size_bytes CHECK
+export const MAX_DOCUMENT_BYTES = 100 * 1024 * 1024;   // 100 MB — lms.document size_bytes CHECK (migration 0063)
 
 /** Entities a document may belong to, and the table that holds them. */
 export const DOCUMENT_ENTITIES: Record<string, string> = {
@@ -66,7 +67,11 @@ export function cleanFileName(name: string): string {
 const refFor = (hex: string) => `sha256:${hex}`;
 const pathFor = (hex: string) => path.join(storeRoot(), hex.slice(0, 2), hex);
 
-/** Store bytes; returns their hash and storage reference. Idempotent for identical bytes. */
+/**
+ * Store bytes; returns their hash and storage reference. The hash is of the
+ * ORIGINAL bytes, but the file is written gzip-compressed at rest (smaller on
+ * disk and in backups). Idempotent for identical bytes.
+ */
 export async function storeBytes(bytes: Uint8Array): Promise<{ sha256: Buffer; ref: string }> {
   const sha256 = createHash('sha256').update(bytes).digest();
   const hex = sha256.toString('hex');
@@ -74,7 +79,7 @@ export async function storeBytes(bytes: Uint8Array): Promise<{ sha256: Buffer; r
   try { await stat(final); } catch {
     await mkdir(path.dirname(final), { recursive: true, mode: 0o700 });
     const tmp = `${final}.${process.pid}.${Date.now()}.tmp`;
-    await writeFile(tmp, bytes, { mode: 0o600 });
+    await writeFile(tmp, gzipSync(bytes), { mode: 0o600 });   // compressed at rest
     await rename(tmp, final);   // atomic: a reader never sees a half-written file
   }
   return { sha256, ref: refFor(hex) };
@@ -86,8 +91,37 @@ export class IntegrityError extends Error {}
 export async function readVerified(ref: string, expected: Buffer): Promise<Buffer> {
   const m = /^sha256:([0-9a-f]{64})$/.exec(ref);
   if (!m) throw new IntegrityError('This document has no stored file.');
-  const bytes = await readFile(pathFor(m[1])).catch(() => { throw new IntegrityError('The stored file is missing.'); });
+  const raw = await readFile(pathFor(m[1])).catch(() => { throw new IntegrityError('The stored file is missing.'); });
+  // Files are gzip-compressed at rest (magic 1f 8b); files stored before that are raw.
+  let bytes: Buffer = raw;
+  if (raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b) {
+    try { bytes = gunzipSync(raw); } catch { bytes = raw; }
+  }
   const actual = createHash('sha256').update(bytes).digest();
   if (!actual.equals(expected)) throw new IntegrityError('The stored file does not match its recorded checksum.');
   return bytes;
+}
+
+export class MalwareError extends Error {}
+
+/** The standard EICAR anti-virus test signature (not a real virus). */
+const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
+
+/**
+ * A fast content-safety scan run on every upload before the bytes are stored.
+ * It is a heuristic signature scan — executable images, the EICAR test file,
+ * Office macros and active content in PDFs — not a full anti-virus engine.
+ * Throws MalwareError with a reason when a file should be refused.
+ */
+export function scanForThreats(bytes: Uint8Array, mime: string): void {
+  const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  if (buf.length >= 2 && buf[0] === 0x4d && buf[1] === 0x5a) throw new MalwareError('the file is a Windows executable (MZ)');
+  if (buf.length >= 4 && buf[0] === 0x7f && buf[1] === 0x45 && buf[2] === 0x4c && buf[3] === 0x46) throw new MalwareError('the file is a Linux executable (ELF)');
+  if (buf.includes(EICAR)) throw new MalwareError('it matches the EICAR anti-virus test signature');
+  if ((mime.includes('wordprocessingml') || mime.includes('spreadsheetml')) && buf.includes(Buffer.from('vbaProject.bin')))
+    throw new MalwareError('it contains an embedded macro (vbaProject.bin)');
+  if (mime === 'application/pdf') {
+    for (const sig of ['/JavaScript', '/Launch']) if (buf.includes(Buffer.from(sig)))
+      throw new MalwareError(`it contains active content (${sig}) that could run code`);
+  }
 }
