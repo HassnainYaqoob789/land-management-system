@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { AuthPage } from '@/components/ui/AuthCard';
 import { SIGNIN_UNAVAILABLE_MESSAGE, type SigninProvider } from '@/lib/iam/signin-methods';
 import { passkeySupported, signInWithPasskey } from '@/lib/client/passkey';
-import DemoAccounts from '@/components/auth/DemoAccounts';
 
 // The reference's sign-in card (legacy-demo/index.html .login-card) with the
 // Mari Energies logo. Its demo-accounts table is deliberately absent: accounts
@@ -227,8 +226,6 @@ export default function LoginPage() {
                 : 'Your directory password is managed by your IT department.'}
             </p>
           </form>
-          {/* Demo environments only: the server decides (see /api/auth/demo-accounts). */}
-          <DemoAccounts onPick={(u, pw) => { setVia('local'); setUsername(u); setPassword(pw); setError(null); setMissing(null); }} />
           {others.length > 0 && (
             <section className="demo-accts" aria-labelledby="lgOther">
               <h2 id="lgOther" style={{ fontSize: 12, fontWeight: 700, margin: 0, color: 'var(--text)' }}>Other ways to sign in</h2>
