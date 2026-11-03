@@ -10,7 +10,7 @@
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:all",
-    "test:unit": "node --experimental-strip-types --test tests/unit/domain.test.js tests/unit/geo.test.js tests/unit/measurement_units.test.js",
+    "test:unit": "node --experimental-strip-types --test tests/unit/domain.test.js tests/unit/geo.test.js tests/unit/login_alert.test.js tests/unit/measurement_units.test.js",
     "test:integration": "node --experimental-strip-types --test tests/integration/gis_kml.test.js",
     "test:playwright": "playwright test",
     "test:a11y": "playwright test tests/e2e/legacy_design.spec.ts -g \"WCAG\"",

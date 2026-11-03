@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { withActor, withoutActor } from '../db';
 import { json } from './http';
@@ -6,6 +6,7 @@ import { newToken, sha256 } from './crypto';
 import { burnTime, hashPassword, verifyPassword } from './password';
 import { mfaRequiredFor } from './mfa';
 import { clientIp, createSession, csrfFor, setSessionCookie, userAgent, type LoginMethod } from './session';
+import { loginAlertsOn, loginContext, sendLoginAlert } from './loginAlert';
 
 export const num = async (key: string, d: number) =>
   Number((await withoutActor((c) => c.query('SELECT iam.setting_num($1,$2) AS n', [key, d]))).rows[0].n);
@@ -72,6 +73,13 @@ export async function finishLogin(req: Request, p: { userId: string; username: s
   if (p.method === 'break_glass') {
     await logEvent('emergency_access', 'info', { userId: p.userId, username: p.username, ip, ua, session: sessionId, corr: p.corr });
     console.warn(`[SECURITY] emergency-access sign-in by ${p.username} (correlation ${p.corr})`);
+  }
+  if (loginAlertsOn()) {
+    // Sign-in alert e-mail (LOGIN_ALERT_TO), sent after the answer so it never delays a sign-in.
+    const ctx = loginContext(req, { userId: p.userId, username: p.username, method: p.method, mfaMethod: p.mfaMethod ?? null,
+      providerId: p.providerId ?? null, sessionId, corr: p.corr }, { ip, ua });
+    const job = () => sendLoginAlert(ctx);
+    try { after(job); } catch { void job(); }
   }
   const absolute = await num('iam.session_absolute_hours', 12);
   const res = json({ ok: true, csrfToken: csrfFor(sessionId), mfaEnrollmentRequired: !!p.enrollmentRequired, mustChangePassword: !!p.mustChange });

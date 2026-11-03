@@ -12,7 +12,7 @@ import nodemailer from 'nodemailer';
 // Missing or bad settings fail closed: nothing is sent and the caller is told
 // why, so it can record the failure. A message's body is never logged.
 
-export interface MailMessage { to: string; subject: string; text: string }
+export interface MailMessage { to: string; subject: string; text: string; html?: string }
 export type MailFailure = 'not_configured' | 'misconfigured' | 'invalid_recipient' | 'rejected' | 'transport_error';
 export type MailResult = { delivered: true; messageId: string } | { delivered: false; reason: MailFailure; detail?: string };
 
@@ -78,7 +78,7 @@ export async function deliver(m: MailMessage): Promise<MailResult> {
   }
   if (!ADDRESS.test(m.to) || /[\r\n]/.test(m.subject)) return { delivered: false, reason: 'invalid_recipient' };
   try {
-    const info = await t.transport!.sendMail({ from: t.state.cfg.from, to: m.to, subject: m.subject, text: m.text,
+    const info = await t.transport!.sendMail({ from: t.state.cfg.from, to: m.to, subject: m.subject, text: m.text, ...(m.html ? { html: m.html } : {}),
       headers: { 'Auto-Submitted': 'auto-generated', 'X-Auto-Response-Suppress': 'All' } });
     const accepted = (info.accepted ?? []).map((a: any) => String(typeof a === 'string' ? a : a?.address).toLowerCase());
     // The status code only: the server's text can repeat the recipient address.
