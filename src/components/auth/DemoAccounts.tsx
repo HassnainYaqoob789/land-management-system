@@ -31,7 +31,9 @@ export default function DemoAccounts({ onPick }: { onPick: (username: string, pa
               <strong>{a.username}</strong> · {a.fullName}
               <div style={{ fontSize: 12 }}>{a.position} · {a.provinces.length === 4 ? 'all provinces' : a.provinces.join(', ') || 'no province'}</div>
               <div style={{ fontSize: 11.5, color: 'var(--muted, #5a6b7d)' }}>{a.sees}</div>
-              <div style={{ fontSize: 12 }}>Password: <code style={{ userSelect: 'all' }}>{a.password}</code></div>
+              <div style={{ fontSize: 12 }}>Password:{' '}
+                <code style={{ userSelect: 'none' }}>••••••••••</code>
+              </div>
             </div>
             <button type="button" className="btn btn-s" style={{ alignSelf: 'center' }} onClick={() => onPick(a.username, a.password)}
               aria-label={`Use the ${a.username} account`}>Use</button>
