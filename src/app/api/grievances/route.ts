@@ -182,11 +182,24 @@ export const PUT = protect({ permission: ['grievances', 'update'] }, async (ctx)
       }
 
       if (action === 'transition' && to_stage) {
-        if ((to_stage === 'Resolved' || to_stage === 'Closed') && resolution) {
-          await client.query(
-            `UPDATE lms.grievance SET resolution = $2, resolved_on = COALESCE(resolved_on, CURRENT_DATE) WHERE id = $1`,
-            [id, resolution.trim()]
-          );
+        if (to_stage === 'Resolved' || to_stage === 'Closed') {
+          // A resolved grievance must say how it was resolved (grievance_resolution_required_ck).
+          // The workflow dialog sends only a note, so the note becomes the resolution when none
+          // is recorded yet; an explicit `resolution` always wins.
+          const explicit = typeof resolution === 'string' && resolution.trim() ? resolution.trim() : null;
+          const fromNote = typeof note === 'string' && note.trim() ? note.trim() : null;
+          if (explicit || fromNote) {
+            await client.query(
+              `UPDATE lms.grievance
+                  SET resolution = CASE WHEN $3 THEN $2 ELSE COALESCE(NULLIF(btrim(resolution), ''), $2) END,
+                      resolved_on = COALESCE(resolved_on, CURRENT_DATE)
+                WHERE id = $1`,
+              [id, explicit ?? fromNote, !!explicit]
+            );
+          } else {
+            const has = await client.query(`SELECT btrim(coalesce(resolution, '')) <> '' AS ok FROM lms.grievance WHERE id = $1`, [id]);
+            if (!has.rows[0]?.ok) throw new HttpError(400, 'Write how the grievance was resolved in the note.', 'validation');
+          }
         }
         const wfRes = await client.query(
           `SELECT api.advance_workflow('grievances', $1, $2, $3, $4) AS stage`,
