@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Shell, { useLMS } from '@/components/layout/Shell';
 import { useList, useListQuery, RefSelect, WorkflowActions } from '@/components/legacy/data';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, ErrorNote, WorkflowStrip, Pager, fmtNum, fmtDate } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, ErrorNote, WorkflowStrip, Pager, fmtNum, fmtDate, rowOpen } from '@/components/legacy/ui';
 import CaseForm, { CaseDraft, emptyCase, preview, toBody } from '@/components/cases/CaseForm';
 import { LoadError } from '@/components/auth/PageGuard';
 import { ApiError, send, useApi, useReference, stagesOf } from '@/lib/client/api';
@@ -228,7 +228,7 @@ function CasesContent() {
               <th>Stage</th><th>Waiting on</th><th>Settlement</th><th>Actions</th></>}
             empty={shown.length || error ? false : `No cases${lq.q || stage ? ' match the filter' : ' yet'}.`} colSpan={10}>
             {shown.map((r: any) => (
-              <tr key={r.case_id} className="is-link" onClick={() => { setFormError(null); setOpenId(r.case_id); }}>
+              <tr key={r.case_id} {...rowOpen(() => { setFormError(null); setOpenId(r.case_id); }, `Open case ${r.case_code}`)}>
                 <td><span className="code">{r.case_code}</span><br /><small className="note">{fmtDate(r.case_date)}</small></td>
                 <td><span className="pill">{r.province_code}</span></td>
                 <td>{r.project_name}</td>

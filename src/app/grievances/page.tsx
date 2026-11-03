@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell, { useLMS } from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList, RefSelect, WorkflowActions, ProvinceSelect, useListQuery } from '@/components/legacy/data';
 import { send, useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
@@ -28,6 +28,7 @@ function GrievancesContent() {
   const [form, setForm] = useState({ ...EMPTY });
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [viewId, setViewId] = useState<string | null>(null);
   const set = (k: keyof typeof EMPTY) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const create = async (e: React.FormEvent) => {
@@ -64,7 +65,7 @@ function GrievancesContent() {
             head={<><th>Grievance</th><th>Prov.</th><th>Complainant</th><th>Category</th><th>Severity</th><th>Received</th><th>Due</th><th>Stage</th><th>Actions</th></>}
             empty={shown.length || error ? false : 'No grievances.'} colSpan={9}>
             {shown.map((g: any) => (
-              <tr key={g.grievance_id}>
+              <tr key={g.grievance_id} {...rowOpen(() => setViewId(g.grievance_id), `Show details of ${g.grievance_code}`)}>
                 <td><span className="code">{g.grievance_code}</span><br /><small className="note">{g.grievance_type}</small></td>
                 <td><span className="pill">{g.province_code}</span></td>
                 <td>{g.complainant}{g.mobile && <><br /><small className="note mono">{g.mobile}</small></>}</td>
@@ -83,6 +84,47 @@ function GrievancesContent() {
         )}
         <Pager page={page} onOffset={lq.setOffset} />
       </Card>
+
+      {(() => {
+        const v = viewId ? rows.find((g: any) => g.grievance_id === viewId) : null;
+        if (!v) return null;
+        const sevTone = ['High', 'Critical'].includes(v.severity) ? 'b-d' : v.severity === 'Medium' ? 'b-w' : 'b-n';
+        return (
+          <DetailsModal open icon="warn" onClose={() => setViewId(null)}
+            title={<>Grievance <span className="code">{v.grievance_code}</span></>}
+            sections={[
+              { items: [
+                ['Type', v.grievance_type],
+                ['Category', v.category_code],
+                ['Severity', v.severity ? <span className={`b ${sevTone}`}>{v.severity}</span> : null],
+                ['Stage', <Stage value={v.stage_code} />],
+              ] },
+              { title: 'Complainant', items: [
+                ['Name', v.complainant],
+                ['CNIC', v.complainant_cnic ? <span className="mono">{v.complainant_cnic}</span> : null],
+                ['Mobile', v.mobile ? <span className="mono">{v.mobile}</span> : null],
+                ['Landowner', v.landowner_code],
+                ['Channel', v.channel],
+              ] },
+              { title: 'Where', items: [
+                ['Province', v.province_code],
+                ['Project', v.project_code],
+                ['Parcel', v.survey_code],
+              ] },
+              { title: 'Handling', items: [
+                ['Received', v.received_date ? `${fmtDate(v.received_date)} (${fmtNum(v.age_days)} days ago)` : null],
+                ['Due', v.due_date ? <>{fmtDate(v.due_date)}{v.is_overdue && <> <span className="b b-d">Overdue</span></>}</> : null],
+                ['Assigned to', v.assigned_to],
+                ['Escalation level', v.escalation_level],
+                ['Resolved', v.resolved_on ? fmtDate(v.resolved_on) : null],
+                ['Description', v.description, true],
+                ['Resolution', v.resolution, true],
+              ] },
+            ]}
+            actions={<div className="acts"><WorkflowActions workflow="grievances" resource="/api/grievances" record={{ ...v, id: v.grievance_id, code: v.grievance_code }}
+              can={canIn('grievances:update', v.province_code)} /></div>} />
+        );
+      })()}
 
       <Modal open={open} icon="warn" title="Add Grievance" onClose={() => setOpen(false)}
         footer={<>

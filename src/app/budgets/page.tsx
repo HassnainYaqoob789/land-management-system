@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import Shell from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtRsM, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtRsM, Pager, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList, useListQuery } from '@/components/legacy/data';
 import { send, useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
@@ -28,6 +28,7 @@ function BudgetsContent() {
   const [form, setForm] = useState({ ...EMPTY });
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<any | null>(null);
   const canCreate = can('budgets:create');
   const canEdit = (b: any) => canIn('budgets:update', b?.province_code);
 
@@ -43,6 +44,8 @@ function BudgetsContent() {
       setEdit(null);
     } catch (err: any) { setFormError(err.message); } finally { setBusy(false); }
   };
+
+  const openRevise = (b: any) => { setFormError(null); setForm({ ...EMPTY, approved_amount: b.approved_amount, remarks: b.remarks ?? '' }); setEdit(b); };
 
   const shown = rows;   // searched and paged by the database
   const sum = (k: string) => summary[k] ?? 0;
@@ -76,7 +79,7 @@ function BudgetsContent() {
               <th className="num">Released (Rs)</th><th className="num">Balance (Rs)</th><th className="num">Used</th><th>Status</th><th>Actions</th></>}
             empty={shown.length || error ? false : 'No budgets.'} colSpan={11}>
             {shown.map((b: any) => (
-              <tr key={b.budget_id}>
+              <tr key={b.budget_id} {...rowOpen(() => setView(b), `Show budget ${b.budget_code}`)}>
                 <td><span className="code">{b.budget_code}</span></td>
                 <td><span className="pill">{b.province_code}</span></td>
                 <td>{b.project_name}<br /><small className="note mono">{b.project_code}</small></td>
@@ -88,7 +91,7 @@ function BudgetsContent() {
                 <td className="num">{fmtNum(b.utilisation_pct, 1)}%</td>
                 <td><Stage value={b.budget_status} /></td>
                 <td><div className="acts">{canEdit(b) && (
-                  <button onClick={() => { setFormError(null); setForm({ ...EMPTY, approved_amount: b.approved_amount, remarks: b.remarks ?? '' }); setEdit(b); }}>Revise</button>
+                  <button onClick={() => openRevise(b)}>Revise</button>
                 )}</div></td>
               </tr>
             ))}
@@ -96,6 +99,28 @@ function BudgetsContent() {
         )}
         <Pager page={page} onOffset={lq.setOffset} />
       </Card>
+
+      {view && (
+        <DetailsModal open icon="trend" onClose={() => setView(null)}
+          title={<>Budget <span className="code">{view.budget_code}</span></>}
+          sections={[
+            { title: 'Budget', items: [
+              ['Project', <>{view.project_name} <span className="code">{view.project_code}</span></>],
+              ['Province', view.province_code],
+              ['Fiscal year', view.fiscal_year],
+              ['Status', <Stage value={view.budget_status} />],
+              ['Remarks', view.remarks, true],
+            ] },
+            { title: 'Utilisation', items: [
+              ['Approved (Rs)', fmtNum(view.approved_amount)],
+              ['Committed (Rs)', fmtNum(view.committed_amount)],
+              ['Released (Rs)', fmtNum(view.released_amount)],
+              ['Balance (Rs)', <span className={Number(view.balance_amount) < 0 ? 'u-danger' : undefined}>{fmtNum(view.balance_amount)}</span>],
+              ['Used', `${fmtNum(view.utilisation_pct, 1)}%`],
+            ] },
+          ]}
+          actions={canEdit(view) && <button type="button" className="btn btn-s" onClick={() => { const b = view; setView(null); openRevise(b); }}>Revise</button>} />
+      )}
 
       <Modal open={!!edit} size="sm" icon="trend" title={edit?.budget_id ? `Revise budget — ${edit.budget_code}` : 'Add Budget'} onClose={() => setEdit(null)}
         footer={<>

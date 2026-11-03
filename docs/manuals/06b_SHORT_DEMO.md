@@ -4,6 +4,8 @@
 **Province:** after sign-in, choose **Sindh** on the *Select province* screen. To change it later, click the province chip in the header.
 **One account at a time:** use a separate incognito window per account, or **Sign out** (top-right name → Sign out) before the next one.
 **Comments:** every approval asks for a comment or note. Type the text given, then press the button.
+**Details of any record:** click anywhere on a row (not on its buttons) to open the record's details; **Close** or Esc shuts it. The buttons on the row still do their own job.
+**Workflow buttons:** an account sees the **→ next step** button only when its position does that step. Everyone else sees **"Waiting on <position>"** on the row, so a wrong button never shows.
 
 ---
 
@@ -58,7 +60,7 @@ Result: **SND-000047**, **SND-000048**, **SND-000049**.
 
 Result: **AREA-000034** (12 ac) and **AREA-000035** (8 ac).
 
-3. On the **AREA-000034** row click **Shares** → in *Landowner to add* pick Ghulam Rasool Mahar → **+** → share `60` → pick Nazir Ahmed Mahar → **+** → share `40` → **Save shares**.
+3. **Do this before any mutation (Part 5).** On the **AREA-000034** row click **Shares** → in *Landowner to add* pick Ghulam Rasool Mahar → **+** → share `60` → pick Nazir Ahmed Mahar → **+** → share `40` → **Save shares**.
 4. On **AREA-000035** do the same with `50` and `50`.
 
 ### 0.4 Compensation case: still `lofield`
@@ -70,12 +72,12 @@ Result: **AREA-000034** (12 ac) and **AREA-000035** (8 ac).
 5. **Crop → + Add line**: AREA-000035, `Wheat`, rate `45000`, damaged `5`.
 6. **Trees → + Add line**: AREA-000035, `Kikar`, `Medium`, rate `8000`, count `6`.
 7. **Other → + Add line**: AREA-000034, `Disturbance allowance`, `25000`.
-8. **Documents seen**: tick all six.
+8. **Documents seen**: tick all six. *(Required: without them **→ Field Approved** is refused with "Missing documents: …". If you forgot, open the case and tick them under **Document checklist**.)*
 9. Click **Create case**. Result: **CC-2026-0012**, total **Rs 2,458,000**, stage *Prepared*.
 
 ### 0.5 Approve the case (one account per step)
 
-On **Compensation Cases**, find CC-2026-0012 and click the **→** button on its row. Type the note, confirm.
+On **Compensation Cases**, click the CC-2026-0012 row to open it and press the **→** button. Type the note, confirm. Only the account in the table below sees that button; the others see "Waiting on …".
 
 | Step | Sign in as | Button |
 |---|---|---|
@@ -101,10 +103,12 @@ On **Compensation Cases**, find CC-2026-0012 and click the **→** button on its
 
 1. Sign in as **`director`**. Choose *Sindh*.
 2. Point at the left menu: **33 tabs**, every section.
-3. Click **Compensation Cases**: the list opens, but there is no Add or approve button. Say: "This account sees everything and can change nothing."
-4. Click **Landowners**: CNICs are masked.
-5. Sign out. Sign in as **`explorer`**: the menu has only **9 tabs** (map, projects, khasras, land requests, alerts).
-6. Sign out. Sign in as **`viewer`**: **7 tabs**.
+3. Click **Compensation Cases**: the **+ Add Compensation Case** button is there. Say: "This account sees everything and can act everywhere: add, edit, and take any approval step."
+4. Click the **CC-2026-0012** row: the case opens with its valuation, owners and checklist. Close it.
+5. Click **Users & Roles** → click any user's row: name, roles, provinces, positions and last sign-in in one view. Close it.
+6. Say the two limits that hold even for the director: "He can raise or verify a voucher but not release it; release is Manager Land's. And on one record he can take only one step; the next step needs another person."
+7. Sign out. Sign in as **`explorer`**: the menu has only **9 tabs** (map, projects, khasras, land requests, alerts).
+8. Sign out. Sign in as **`viewer`**: **7 tabs**, read-only; on **Landowners** the CNICs are masked.
 
 ## Part 2. Exploration request and three approvals (8 min)
 
@@ -185,6 +189,8 @@ Result: stage **Approved**; **Details → Polygon versions** shows v2 and v1.
 
 For each row: sign in → **Acquisition & Title** → on ACQ-2026-0004 click the **→** button → note → confirm. After each, refresh the explorer's Details to show the strip moving.
 
+**Show once:** after `nego` moves it to *Negotiation*, the same row shows **"Waiting on DM / Team Lead (Field)"** for `nego` instead of a button. Say: "Each person only gets the button for his own step."
+
 | Sign in as | Button |
 |---|---|
 | `nego` | → Negotiation |
@@ -231,7 +237,7 @@ For each row: sign in → **Acquisition & Title** → on ACQ-2026-0004 click the
 2. Sign in as **`sradmin`** → **Mutation & Succession** → on MUT-0007 click **Revenue record**: mutation no. `Intiqal 881/2026`, date `10/11/2026`, office `Mukhtiarkar Daharki` → **Save**. Then click **→ Revenue Verified**.
 3. Sign in as **`legal`** → MUT-0007 → **→ Legal Cleared**.
 4. Sign in as **`mland`** → MUT-0007 → **→ Approved & Applied**.
-5. Still `mland`: on MUT-0007 click **Details** → **Payments re-pointed**: "CC-2026-0012 · Nazir Ahmed Mahar → Abdul Ghaffar Chachar · 40%".
+5. Still `mland`: click the MUT-0007 row (or **Details**) → **Payments re-pointed**: "CC-2026-0012 · Nazir Ahmed Mahar → Abdul Ghaffar Chachar · 40%".
 6. Open **Compensation Cases** → CC-2026-0012: owners are now Ghulam 60% and **Abdul Ghaffar 40%**.
 7. Sign in as **`finance`** → **Payments & Cheques** → VCH-2026-00035 (Nazir) shows **On hold** (ownership changed).
 8. Click **Cancel voucher** → reason `Land sold; raised again for the buyer.` → **Cancel voucher**.
@@ -240,8 +246,17 @@ For each row: sign in → **Acquisition & Title** → on ACQ-2026-0004 click the
 ## Part 6. CNIC search and audit (2 min)
 
 1. Sign in as **`lofield`**. In the header search box type `45104-2000013-9` → Enter. Result: **SND-000049 Abdul Ghaffar Chachar**.
-2. Sign in as **`audit`** → **Audit Trail** → search `MUT-0007`: every change, who made it and when.
+2. Sign in as **`audit`** → **Audit Trail** → search `MUT-0007`: every change, who made it and when. Click a row to see the old and new values of that change.
 
 ---
+
+**If something is refused:**
+
+| Message | Cause | Fix |
+|---|---|---|
+| Missing documents: … | Case documents not ticked | Open the case → **Document checklist** → tick all six → retry |
+| Select the holdings to transfer. | The mutation was saved before Nazir's **Shares** were recorded | Record the shares (0.3 step 3), set the old mutation to **Cancelled**, create the mutation again |
+| the … step is for: … | Wrong account for this step | Sign in as the account in the table |
+| segregation of duties … | Same person on two steps of one record | Use the next account in the table |
 
 **Repeat the demo:** restore the backup from Part 0 and restart the app. If a code number differs (e.g. REQ-2026-0005), carry on: only the number changes.

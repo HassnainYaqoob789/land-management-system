@@ -4,10 +4,53 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import Shell from '@/components/layout/Shell';
-import { Card, Kpi, Stage, Table, Loading, fmtNum, fmtRsM, fmtDate } from '@/components/legacy/ui';
+import { Card, Kpi, Stage, Table, Loading, fmtNum, fmtRsM, fmtDate, rowOpen, DetailsModal, type DetailSection } from '@/components/legacy/ui';
+import { formatPKR } from '@/lib/domain';
 import { LoadError } from '@/components/auth/PageGuard';
 import { useApi } from '@/lib/client/api';
 import { routePermission, useCan } from '@/lib/client/permissions';
+
+type Row = { kind: 'survey' | 'budget' | 'case' | 'lease'; x: any };
+const rs = (v: unknown) => (v === null || v === undefined || v === '' ? null : formatPKR(Number(v)));
+
+function rowDetails({ kind, x }: Row): { title: React.ReactNode; icon: string; href: string; label: string; sections: DetailSection[] } {
+  switch (kind) {
+    case 'survey': return {
+      title: <>Survey parcel <span className="code">{x.survey_code}</span></>, icon: 'map', href: '/surveys', label: 'Survey / Khasra Register',
+      sections: [{ items: [['Parcel', <span className="code">{x.survey_code}</span>], ['Survey / khasra no.', x.survey_no], ['Block', x.block_no],
+        ['Area (acres)', x.total_area != null ? fmtNum(x.total_area, 2) : null], ['Status', x.status_code && <Stage value={x.status_code} />],
+        ['Land class', x.land_class], ['Province', x.province_code], ['Location', x.location_path, true]] }],
+    };
+    case 'budget': return {
+      title: <>Budget <span className="code">{x.fiscal_year}</span></>, icon: 'trend', href: '/budgets', label: 'Budgets',
+      sections: [{ items: [['Fiscal year', x.fiscal_year], ['Province', x.province_code], ['Allocated', rs(x.allocated_amount)], ['Committed', rs(x.committed_amount)],
+        ['Spent', rs(x.spent_amount)], ['Available', rs(x.available_amount ?? x.remaining_amount)],
+        ['Used', x.utilization_pct != null ? `${fmtNum(x.utilization_pct, 1)}%` : null], ['Note', x.note || x.remarks, true]] }],
+    };
+    case 'case': return {
+      title: <>Compensation case <span className="code">{x.case_code}</span></>, icon: 'doc', href: '/cases', label: 'Compensation Cases',
+      sections: [{ items: [['Case', <span className="code">{x.case_code}</span>], ['Case date', x.case_date && fmtDate(x.case_date)], ['Province', x.province_code],
+        ['Project', x.project_name], ['Land used for', x.land_use_code], ['Owners', x.owner_count != null ? fmtNum(x.owner_count) : null],
+        ['Total payable', rs(x.total_amount)], ['Allocated', rs(x.allocated_amount)], ['Released', rs(x.released_amount)],
+        ['Stage', x.stage_code && <Stage value={x.stage_code} />], ['Days at stage', x.days_at_stage != null ? fmtNum(x.days_at_stage) : null],
+        ['Waiting on', x.waiting_on_group], ['Landowners', x.owner_codes, true]] }],
+    };
+    case 'lease': return {
+      title: <>Lease <span className="code">{x.lease_code}</span></>, icon: 'cal', href: '/leases', label: 'Leases',
+      sections: [
+        { items: [['Lease', <span className="code">{x.lease_code}</span>], ['Kind', x.kind], ['Registration no.', x.registration_no], ['Province', x.province_code],
+          ['Project', x.project_code ? `${x.project_code} · ${x.project_name ?? ''}` : null], ['Case', x.case_code],
+          ['Status', x.lease_status && <Stage value={x.lease_status} />], ['Stage', x.stage_code],
+          ['On hold', x.is_on_hold ? <span className="b b-d">Yes{x.hold_reason ? ` — ${x.hold_reason}` : ''}</span> : null],
+          ['Lessor(s)', x.lessors, true], ['Parcels', x.parcels, true]] },
+        { title: 'Term and rent', items: [['Start', x.start_date && fmtDate(x.start_date)], ['Term (years)', x.term_years], ['Expiry', x.end_date && fmtDate(x.end_date)],
+          ['Days to expiry', x.days_to_expiry != null ? fmtNum(x.days_to_expiry) : null], ['Renewals', x.renewal_count != null ? fmtNum(x.renewal_count) : null],
+          ['Area (acres)', fmtNum(x.current_area || x.initial_area, 2)], ['Rate per acre', rs(x.rate_per_acre)], ['Escalation', x.escalation_pct != null ? `${x.escalation_pct}%` : null],
+          ['Annual rent', rs(x.annual_rent)]] },
+      ],
+    };
+  }
+}
 
 export default function ProjectDashboardPage() {
   return (
@@ -26,6 +69,7 @@ function ProjectDashboardContent() {
   const searchParams = useSearchParams();
   const can = useCan();
   const [selectedId, setSelectedId] = useState<string>(searchParams.get('id') || '');
+  const [view, setView] = useState<Row | null>(null);
   const may = { surveys: can('surveys:read'), cases: can('cases:read'), leases: can('leases:read'), budgets: can('budgets:read'),
     payments: can('payments:read'), gis: can('gis:read') };
   const to = (href: string) => { const need = routePermission(href); return !need || can(need) ? href : undefined; };
@@ -98,7 +142,7 @@ function ProjectDashboardContent() {
             colSpan={5}
           >
             {linkedSurveys.map((s: any) => (
-              <tr key={s.survey_id}>
+              <tr key={s.survey_id} {...rowOpen(() => setView({ kind: 'survey', x: s }), `Show parcel ${s.survey_code}`)}>
                 <td>
                   {to('/surveys')
                     ? <Link href="/surveys" className="code" aria-label={`Survey ${s.survey_code}`}>{s.survey_code}</Link>
@@ -122,7 +166,7 @@ function ProjectDashboardContent() {
             colSpan={5}
           >
             {budgets.map((b: any) => (
-              <tr key={b.budget_id}>
+              <tr key={b.budget_id} {...rowOpen(() => setView({ kind: 'budget', x: b }), `Show budget ${b.fiscal_year}`)}>
                 <td><span className="code">{b.fiscal_year}</span></td>
                 <td className="num">{fmtNum(b.allocated_amount)}</td>
                 <td className="num">{fmtNum(b.committed_amount)}</td>
@@ -144,7 +188,7 @@ function ProjectDashboardContent() {
             colSpan={5}
           >
             {cases.map((c: any) => (
-              <tr key={c.case_id}>
+              <tr key={c.case_id} {...rowOpen(() => setView({ kind: 'case', x: c }), `Show case ${c.case_code}`)}>
                 <td><Link href="/cases" className="code">{c.case_code}</Link></td>
                 <td>{c.land_use_code}</td>
                 <td className="num">{fmtNum(c.total_amount)}</td>
@@ -164,7 +208,7 @@ function ProjectDashboardContent() {
             colSpan={6}
           >
             {leases.map((l: any) => (
-              <tr key={l.lease_id}>
+              <tr key={l.lease_id} {...rowOpen(() => setView({ kind: 'lease', x: l }), `Show lease ${l.lease_code}`)}>
                 <td><Link href="/leases" className="code">{l.lease_code}</Link></td>
                 <td>{l.lessors || '—'}</td>
                 <td className="num">{fmtNum(l.current_area || l.initial_area, 2)}</td>
@@ -176,6 +220,11 @@ function ProjectDashboardContent() {
           </Table>
         </Card>}
       </div>}
+      {view && (() => {
+        const d = rowDetails(view);
+        return <DetailsModal open icon={d.icon} title={d.title} sections={d.sections} onClose={() => setView(null)}
+          actions={to(d.href) ? <Link className="btn btn-s" href={d.href}>Open {d.label}</Link> : undefined} />;
+      })()}
     </>
   );
 }

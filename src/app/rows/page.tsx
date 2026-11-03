@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList, RefSelect, WorkflowActions, useListQuery } from '@/components/legacy/data';
 import { send, useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
@@ -27,6 +27,7 @@ function RowsContent() {
   const [form, setForm] = useState({ ...EMPTY });
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [viewId, setViewId] = useState<string | null>(null);
   const set = (k: keyof typeof EMPTY) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const num = (v: string) => (v === '' ? undefined : Number(v));
 
@@ -74,7 +75,7 @@ function RowsContent() {
               <th className="num">Width (m)</th><th className="num">Area (ac)</th><th className="num">Annual rent (Rs)</th><th>Expiry</th><th>Stage</th><th>Actions</th></>}
             empty={shown.length || error ? false : 'No corridors in this province.'} colSpan={12}>
             {shown.map((r: any) => (
-              <tr key={r.id}>
+              <tr key={r.id} {...rowOpen(() => setViewId(r.id), `Show details of ${r.code}`)}>
                 <td><span className="code">{r.code}</span></td>
                 <td>{r.name}{(r.from_point || r.to_point) && <><br /><small className="note">{r.from_point} → {r.to_point}</small></>}</td>
                 <td><span className="pill">{r.province_code}</span></td>
@@ -93,6 +94,40 @@ function RowsContent() {
         )}
         <Pager page={page} onOffset={lq.setOffset} />
       </Card>
+
+      {(() => {
+        const v = viewId ? rows.find((r: any) => r.id === viewId) : null;
+        if (!v) return null;
+        return (
+          <DetailsModal open icon="route" onClose={() => setViewId(null)}
+            title={<>ROW corridor <span className="code">{v.code}</span></>}
+            sections={[
+              { items: [
+                ['Name', v.name],
+                ['Project', `${v.project_code ?? ''} · ${v.project_name ?? ''}`],
+                ['Province', v.province_name || v.province_code],
+                ['Stage', <Stage value={v.stage_code} />],
+              ] },
+              { title: 'Corridor', items: [
+                ['Type', v.row_type],
+                ['From', v.from_point],
+                ['To', v.to_point],
+                ['Length (m)', v.length_m != null ? fmtNum(v.length_m) : null],
+                ['Width (m)', v.width_m != null ? fmtNum(v.width_m, 1) : null],
+                ['Area (ac)', v.area_acres != null ? fmtNum(v.area_acres, 2) : null],
+              ] },
+              { title: 'Agreement', items: [
+                ['Agreement date', v.agreement_date ? fmtDate(v.agreement_date) : null],
+                ['Tenure (years)', v.tenure_years],
+                ['Annual rent (Rs)', v.annual_rent != null ? fmtNum(v.annual_rent) : null],
+                ['Expiry', v.expiry_date ? <>{fmtDate(v.expiry_date)}{v.days_to_expiry != null && v.days_to_expiry <= 180 && <> <span className="b b-w">{v.days_to_expiry} days</span></>}</> : null],
+                ['Obligations', v.obligations, true],
+              ] },
+              { title: 'Record', items: [['Created', fmtDate(v.created_at)], ['Last updated', fmtDate(v.updated_at)]] },
+            ]}
+            actions={<div className="acts"><WorkflowActions workflow="rows" resource="/api/rows" record={v} can={canIn('rows:update', v.province_code)} /></div>} />
+        );
+      })()}
 
       <Modal open={open} icon="route" title="Add ROW Corridor" onClose={() => setOpen(false)}
         footer={<>

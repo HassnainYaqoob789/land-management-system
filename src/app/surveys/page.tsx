@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell, { useLMS } from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, ErrorNote, Kpi, fmtNum, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, ErrorNote, Kpi, fmtNum, fmtDate, Pager, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList, RefSelect, ProvinceSelect, useListQuery } from '@/components/legacy/data';
 import { LoadError } from '@/components/auth/PageGuard';
 import { send, useApi, useReference, lookupOf } from '@/lib/client/api';
@@ -43,6 +43,9 @@ function SurveysContent() {
   const units = useApi(canCreate ? '/api/units' : null).data;
   const projects = useApi(canCreate && can('projects:read') ? '/api/projects' : null).data?.projects ?? [];
   const [mode, setMode] = useState<'new' | 'edit' | null>(null);
+  const [viewId, setViewId] = useState<string | null>(null);
+  const viewLoad = useApi<any>(viewId ? `/api/surveys?id=${viewId}` : null);
+  const vd = viewLoad.data;
   const [form, setForm] = useState<any>({ ...EMPTY });
   const [editing, setEditing] = useState<any | null>(null);
   // As loaded: an unchanged area is not sent, so a record captured before units were kept stays honest.
@@ -148,7 +151,7 @@ function SurveysContent() {
             {rows.map((s: any) => {
               const total = Number(s.share_total_pct || 0); const ok = Math.abs(total - 100) < 0.01;
               return (
-                <tr key={s.survey_id}>
+                <tr key={s.survey_id} {...rowOpen(() => setViewId(s.survey_id), `Show survey ${s.survey_code}`)}>
                   <td><span className="code">{s.survey_code}</span></td>
                   <td><span className="pill">{s.province_code}</span></td>
                   <td>Survey {s.survey_no}{s.block_no ? ` · Block ${s.block_no}` : ''}{s.khasra_type && <><br /><small className="note">{s.khasra_type}</small></>}</td>
@@ -168,6 +171,54 @@ function SurveysContent() {
         )}
         <Pager page={page} onOffset={lq.setOffset} />
       </Card>
+
+      {viewId && (() => {
+        const row = rows.find((r: any) => r.survey_id === viewId);
+        const v = vd?.survey;
+        const ownerShares: any[] = vd?.shares ?? [];
+        const history: any[] = vd?.history ?? [];
+        const projectsOf: any[] = vd?.projects ?? [];
+        const total = Number(v?.share_total_pct ?? row?.share_total_pct ?? 0);
+        return (
+          <DetailsModal open icon="map" onClose={() => setViewId(null)}
+            title={<>Survey <span className="code">{v?.code ?? row?.survey_code}</span></>}
+            sections={viewLoad.error ? [] : !v ? [] : [
+              { title: 'Parcel', items: [
+                ['Survey / khasra no.', v.survey_no],
+                ['Block no.', v.block_no],
+                ['Khasra type', v.khasra_type],
+                ['Province', row?.province_name ?? v.province_code],
+                ['Revenue location', v.location_path, true],
+                ['Land class', v.land_class],
+                ['Status', <Stage value={v.status_code} />],
+              ] },
+              { title: 'Area', items: [
+                ['Area (acres)', fmtNum(v.total_area, 4)],
+                ['Recorded as', v.recorded_area != null ? `${fmtNum(v.recorded_area, 4)} ${v.recorded_unit ?? ''}` : null],
+                ['Committed (acres)', v.committed_area != null ? fmtNum(v.committed_area, 4) : null],
+                ['Apportionment', v.apportionment],
+                ['Latitude / longitude', v.lat != null && v.lng != null ? `${v.lat}, ${v.lng}` : null],
+              ] },
+              { title: 'Ownership', items: [
+                ['Owner shares', <><span className={`b ${Math.abs(total - 100) < 0.01 ? 'b-g' : 'b-w'}`}>{total.toFixed(1)}%</span> <small className="note">{v.owner_count ?? 0} owner(s)</small></>],
+                vd?.owners_shown && ['Owners', ownerShares.length ? ownerShares.map((o) => <React.Fragment key={o.share_id}>{o.full_name} <span className="code">{o.landowner_code}</span> · {fmtNum(o.share_pct, 2)}%<br /></React.Fragment>) : 'none recorded', true],
+                vd?.owners_shown && history.length > 0 && ['Ownership history', history.slice(0, 10).map((h) => <React.Fragment key={h.id}>{fmtDate(h.valid_from)}{h.valid_to ? ` – ${fmtDate(h.valid_to)}` : ' – now'} · {h.full_name} {fmtNum(h.share_pct, 2)}%{h.mutation_code ? ` · ${h.mutation_code}` : ''}{h.change_reason ? ` · ${h.change_reason}` : ''}<br /></React.Fragment>), true],
+              ] },
+              { title: 'Record', items: [
+                ['Projects', projectsOf.length ? projectsOf.map((p) => `${p.code} · ${p.name}`).join(', ') : null, true],
+                ['Remarks', v.remarks, true],
+                ['Created', fmtDate(v.created_at)],
+                ['Last updated', fmtDate(v.updated_at)],
+              ] },
+            ]}
+            actions={row && <>
+              {canIn('landowners:read', row.province_code) && <button type="button" className="btn btn-s" onClick={() => { setViewId(null); openShares(row); }}>Shares</button>}
+              {canEditIn(row.province_code) && <button type="button" className="btn btn-s" onClick={() => { setViewId(null); openEdit(row); }}>Edit</button>}
+            </>}>
+            {viewLoad.error ? <LoadError {...viewLoad} what="this survey" /> : !v && <Loading what="survey" />}
+          </DetailsModal>
+        );
+      })()}
 
       <Modal open={!!shares} size="lg" icon="scale" title={<>Owner shares — <span className="code">{shares?.survey.survey_code}</span></>} onClose={() => setShares(null)}
         footer={<>

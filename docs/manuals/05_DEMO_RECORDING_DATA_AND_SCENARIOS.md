@@ -18,12 +18,15 @@ The sequence matches the [Key Features User Manual](02_KEY_FEATURES_USER_MANUAL.
 | 4 | Browser | Chrome, 1440 × 900 or larger, zoom 100%. Use one **incognito window per user**, or sign out between users. |
 | 5 | Re-authentication | Releasing a cheque asks for the password again if the sign-in is older than 10 minutes. Keep `mland`'s password at hand. |
 | 6 | Codes | The codes in "Expected result" (e.g. `REQ-2026-0004`) assume nothing else is created first. If a number differs, carry on: only the number changes. |
+| 7a | Record details | Click anywhere on a table row (not on its buttons) to open that record's details; **Close** or Esc shuts it. Handy for close-up shots. |
+| 7b | Only your step | An account sees the **→ next step** button only for its own position's step; others see "Waiting on <position>" on the row. Sign in as the account named in each scene. |
 | 7 | Retake | If you need a second take, use the **Take-2 values** in §12 so you do not hit "already exists" errors. |
 
 ### The cast (demo accounts)
 
 | Username | Person (fictional) | Role / approval position | Province | Appears in scene |
 |---|---|---|---|---|
+| `director` | Asif Rehman | Director (all tabs, all actions; demo) | all | opening (optional) |
 | `lofield` | Sanaullah Khoso | Land Officer (Field) | Sindh | 1, 2, 3, 6, 7, 8 |
 | `explorer` | Usman Ghani | Exploration Planner | Sindh | 4, 5 |
 | `dirops` | Javed Akhtar | Director Operations | all | 5 |
@@ -161,7 +164,7 @@ The project form has no map position. The project's location comes from its khas
 
 **Expected result:** **AREA-000035**, Proposed, 8.00 acres.
 
-### 3e. Owner shares
+### 3e. Owner shares (needed later by any mutation, so do not skip)
 
 In the **Survey / Khasra Register**, on the khasra's row, click **Shares**. Add each owner with "Landowner to add" and **+**, then **Save shares**. The total must be exactly 100%.
 
@@ -382,7 +385,7 @@ Click **Create case**.
 
 ### 8b. Approval chain: one person, one step
 
-Open the case and use the workflow button. A note is optional, but say it aloud.
+Click the case's row to open it and use the workflow button. A note is optional, but say it aloud. Only the account named for a step sees its button; the others see "Waiting on …".
 
 | Step | Sign in as | Button | Note | Stage after |
 |---|---|---|---|---|
@@ -394,7 +397,7 @@ Open the case and use the workflow button. A note is optional, but say it aloud.
 
 **Negative checks:**
 - `nego` cannot approve two steps; the second attempt is refused.
-- Step 4 is refused if a required document is unticked, with "Missing documents: …".
+- Step 4 is refused if a required document is unticked, with "Missing documents: …". Fix: open the case → **Document checklist** → tick the six documents → retry.
 
 ---
 
@@ -490,7 +493,7 @@ Then click **Print receipt** in the Receipts table.
 | 10.2 | `mland` | **Records & Reports → Landowner Register** | Province `Sindh`, District `Ghotki`, Taluka `Daharki`, Deh `Jarwar`; Area unit `All in Kanal`; Show `One row per owner` | Ghulam Rasool Mahar and Nazir Ahmed Mahar with their khasras and shares; 12 ac = **96 Kanal**, 8 ac = **64 Kanal** |
 | 10.3 | `mland` | Export buttons **PDF / Excel / CSV** | Download | The file has the same rows as the screen |
 | 10.4 | `mland` | **Executive Dashboard** | Province chart, paid vs approved, approvals waiting | Figures include the new case and cheque |
-| 10.5 | `audit` | **Audit Trail** | Filter by record `REQ-2026-0004` or `CC-2026-0012` | Every change, with who and when |
+| 10.5 | `audit` | **Audit Trail** | Filter by record `REQ-2026-0004` or `CC-2026-0012`; click a row | Every change, with who and when; the row opens the old and new values |
 
 ---
 
@@ -505,6 +508,10 @@ Then click **Print receipt** in the Receipts table.
 | V5 | Preparer approves own case | `lofield` on CC-2026-0012 | — | No approve button |
 | V6 | Over-award voucher | Request Payment | Gross `2500000` on CC-2026-0012 | Refused; "at most … can still be requested" |
 | V7 | Province isolation | `loquetta` (Balochistan) | Open Land Requests | REQ-2026-0004 is not listed |
+| V9 | Wrong person for a step | `legal` on a mutation at *Legal Cleared*; `nego` on an acquisition at *Negotiation* | — | No → button; row shows "Waiting on Manager Land (HO)" / "Waiting on DM / Team Lead (Field)" |
+| V10 | Field approval without documents | `dmfield` on a case with unticked documents | → Field Approved | "Missing documents: …" |
+| V11 | Mutation without recorded shares | Mutation for an owner with no **Shares** on any khasra | → Approved & Applied | "Select the holdings to transfer." |
+| V12 | Director and payment release | `director` on a verified voucher | — | No **Release cheque**: one person may not raise/verify and release |
 | V8 | Planner sees no owner data | `explorer` | Menu | No Landowners / Payments / Cases; the Survey register has no Shares button |
 
 ---

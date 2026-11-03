@@ -16,7 +16,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Map as MLMap, GeoJSONSource, StyleSpecification } from 'maplibre-gl';
 import Shell, { useLMS } from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Loading, ErrorNote, fmtNum } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Loading, ErrorNote, fmtNum, rowOpen } from '@/components/legacy/ui';
 import { PAL } from '@/components/legacy/ChartBox';
 import { send } from '@/lib/client/api';
 import { useCan } from '@/lib/client/permissions';
@@ -587,7 +587,7 @@ function GisContent() {
             <Table caption="Spatial features" head={<><th>Feature</th><th>Geometry</th><th className="num">Acres</th><th>Source</th><th><span className="sr-only">Actions</span></th></>}
               empty={visibleFeatures.length ? false : 'No KML features imported for this project yet.'} colSpan={5}>
               {visibleFeatures.map((f) => (
-                <tr key={f.id}>
+                <tr key={f.id} {...rowOpen(() => showFeature(f), `Show feature ${f.feature_name} on the map`)}>
                   <td>{f.feature_name}</td>
                   <td><span className="pill">{f.geometry_type}</span></td>
                   <td className="num">{fmtNum(f.area_acres, 2)}</td>
@@ -606,7 +606,7 @@ function GisContent() {
           <Table caption="Land requests on the map" head={<><th>Request</th><th>Stage</th><th>Purpose</th><th>Project</th><th className="num">Acres</th><th><span className="sr-only">Actions</span></th></>}
             empty={requestRows.length ? false : 'No land request has a polygon yet.'} colSpan={6}>
             {requestRows.map((f) => (
-              <tr key={f.properties.id}>
+              <tr key={f.properties.id} {...rowOpen(() => { setSelected({ kind: 'request', props: f.properties }); panTo(coordsOf(f.geometry.coordinates)); }, `Show land request ${f.properties.code} on the map`)}>
                 <td className="code">{f.properties.code}{f.properties.version > 1 && <small className="note"> v{f.properties.version}</small>}</td>
                 <td><Stage value={f.properties.stage} /></td>
                 <td>{f.properties.purpose}</td>
@@ -627,7 +627,7 @@ function GisContent() {
         <Table caption="Survey parcels" head={<><th>Survey</th><th>Status</th><th className="num">Acres</th><th className="num">Owners</th><th>Location</th><th><span className="sr-only">Actions</span></th></>}
           empty={parcels.length ? false : 'No survey parcels with a location in this province.'} colSpan={6}>
           {parcels.slice(0, PARCEL_ROWS).map((f, i) => (
-            <tr key={f.properties?.id ?? f.properties?.code ?? i}>
+            <tr key={f.properties?.id ?? f.properties?.code ?? i} {...rowOpen(() => showParcel(f), `Show survey ${f.properties?.code ?? ''} on the map`)}>
               <td className="code">{f.properties?.code}</td>
               <td><Stage value={f.properties?.status} /></td>
               <td className="num">{fmtNum(f.properties?.total_area_acres, 2)}</td>

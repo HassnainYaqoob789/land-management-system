@@ -198,6 +198,63 @@ export function Table({ head, children, empty, colSpan, foot, caption }: {
   );
 }
 
+// ---- clickable rows and the read-only details dialog ------------------------
+const ROW_CONTROLS = 'button, a, input, select, textarea, label, summary, [role="button"], [role="checkbox"], [role="tab"]';
+
+/**
+ * Props that make a table row open its details: a click anywhere that is not a
+ * control inside the row (buttons, links, checkboxes keep working), or Enter /
+ * Space on the focused row. Selecting text in the row does not open it.
+ *   <tr key={x.id} {...rowOpen(() => setView(x), `Show ${x.code}`)}>
+ */
+export function rowOpen(open: () => void, title?: string, className?: string) {
+  return {
+    className: ['is-link', className].filter(Boolean).join(' '),
+    tabIndex: 0,
+    title,
+    onClick: (e: React.MouseEvent<HTMLElement>) => {
+      if ((e.target as HTMLElement).closest(ROW_CONTROLS)) return;
+      if (typeof window !== 'undefined' && window.getSelection()?.toString()) return;
+      open();
+    },
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); open(); }
+    },
+  };
+}
+
+/** [label, value, wide?]; a falsy entry is skipped, an empty value shows "—". */
+export type DetailItem = readonly [label: string, value: React.ReactNode, wide?: boolean] | null | false | undefined;
+export type DetailSection = { title?: string; items: DetailItem[] };
+const isBlank = (v: React.ReactNode) => v === null || v === undefined || v === '' || v === false || (Array.isArray(v) && v.length === 0);
+
+/** A read-only record dialog: sections of label / value pairs, a Close button, optional extra actions. */
+export function DetailsModal({ open, title, icon = 'doc', onClose, sections, children, actions }: {
+  open: boolean; title: React.ReactNode; icon?: string; onClose: () => void;
+  sections: DetailSection[]; children?: React.ReactNode; actions?: React.ReactNode;
+}) {
+  return (
+    <Modal open={open} size="lg" icon={icon} title={title} onClose={onClose}
+      footer={<>{actions}<span className="u-flex-1" /><button type="button" className="btn btn-p" onClick={onClose}>Close</button></>}>
+      {sections.map((sec, i) => {
+        const items = sec.items.filter(Boolean) as (readonly [string, React.ReactNode, boolean?])[];
+        if (!items.length) return null;
+        return (
+          <React.Fragment key={i}>
+            {sec.title && <div className="sec-t">{sec.title}</div>}
+            <div className="dl u-mt-8">
+              {items.map(([label, value, wide]) => (
+                <div key={label} className={wide ? 'dl-wide' : undefined}><small>{label}</small><span>{isBlank(value) ? '—' : value}</span></div>
+              ))}
+            </div>
+          </React.Fragment>
+        );
+      })}
+      {children}
+    </Modal>
+  );
+}
+
 export function Loading({ what = 'records' }: { what?: string }) {
   return <div className="empty" role="status">Loading {what}…</div>;
 }

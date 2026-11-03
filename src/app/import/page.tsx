@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell, { useLMS } from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Loading, ErrorNote, Kpi, fmtNum } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Loading, ErrorNote, Kpi, fmtNum, rowOpen } from '@/components/legacy/ui';
 import { ProvinceSelect } from '@/components/legacy/data';
 import { LoadError } from '@/components/auth/PageGuard';
 import { send, useApi } from '@/lib/client/api';
@@ -106,7 +106,7 @@ function ImportContent() {
             head={<><th>Batch</th><th>Target</th><th>Prov.</th><th>File</th><th className="num">Rows</th><th className="num">Valid</th><th className="num">Errors</th><th className="num">Promoted</th><th>Status</th><th>Uploaded</th><th>Actions</th></>}
             empty={batches.length ? false : 'No files uploaded yet.'} colSpan={11}>
             {batches.map((b) => (
-              <tr key={b.id}>
+              <tr key={b.id} {...rowOpen(() => setDetailId(b.id), `Open batch ${b.code}`)}>
                 <td><span className="code">{b.code}</span><br /><small className="note mono" title={b.sha256_hex}>{String(b.sha256_hex).slice(0, 12)}…</small></td>
                 <td>{TARGETS[b.target_entity]?.label ?? b.target_entity}</td>
                 <td>{b.province_code ? <span className="pill">{b.province_code}</span> : '—'}</td>

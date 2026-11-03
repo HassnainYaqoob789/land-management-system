@@ -7,7 +7,9 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Shell, { useLMS } from '@/components/layout/Shell';
-import { Card, Kpi, Stage, Table, Tabs, Loading, fmtNum, fmtRsM, fmtDate } from '@/components/legacy/ui';
+import { Card, Kpi, Stage, Table, Tabs, Loading, fmtNum, fmtRsM, fmtDate, rowOpen, DetailsModal } from '@/components/legacy/ui';
+import { useRouter } from 'next/navigation';
+import { formatPKR } from '@/lib/domain';
 import ChartBox, { PAL } from '@/components/legacy/ChartBox';
 import { LoadError } from '@/components/auth/PageGuard';
 import { navFor, showInMenu } from '@/components/layout/nav';
@@ -31,6 +33,10 @@ function DashboardContent() {
   const { activeProvince, permissions, provinces } = useLMS();
   const can = useCan();
   const [view, setView] = useState<View>('exec');
+  const router = useRouter();
+  // Read-only details of a lease alert or a recent case row.
+  const [shown, setShown] = useState<null | { kind: 'lease' | 'case'; x: any }>(null);
+  const rs = (v: unknown) => (v === null || v === undefined || v === '' ? null : formatPKR(Number(v)));
   const pq = activeProvince !== 'ALL' ? `?province=${activeProvince}` : '';
   const kpiLoad = useApi<any>(`/api/analytics/kpis${pq}`);
   const casesLoad = useApi<any>(can('cases:read') ? `/api/cases${pq ? `${pq}&` : '?'}limit=8` : null);
@@ -226,7 +232,7 @@ function DashboardContent() {
                 colSpan={7}
               >
                 {leaseAlerts.slice(0, 6).map((l: any) => (
-                  <tr key={l.lease_id}>
+                  <tr key={l.lease_id} {...rowOpen(() => setShown({ kind: 'lease', x: l }), `Show lease ${l.lease_code}`)}>
                     <td>{to('/leases') ? <Link href="/leases" className="code">{l.lease_code}</Link> : <span className="code">{l.lease_code}</span>}</td>
                     <td><span className="pill">{l.province_code}</span></td>
                     <td>{l.project_code}</td>
@@ -257,7 +263,7 @@ function DashboardContent() {
                 {may.cases && <><th className="num">Cases</th><th className="num">Approved (Rs)</th></>}{may.payments && <th className="num">Paid (Rs)</th>}<th>Status</th><th>Drill-down</th></>}
               empty={projects.length ? false : 'No projects.'} colSpan={7 + (may.cases ? 2 : 0) + (may.payments ? 1 : 0)}>
               {projects.map((p: any) => (
-                <tr key={p.project_id}>
+                <tr key={p.project_id} {...rowOpen(() => router.push(`/projdash?id=${p.project_id}`), `Open the ${p.project_code} dashboard`)}>
                   <td><Link href={`/projdash?id=${p.project_id}`} className="code">{p.project_code}</Link></td>
                   <td><Link href={`/projdash?id=${p.project_id}`}>{p.project_name}</Link></td>
                   <td><span className="pill">{p.province_code}</span></td>
@@ -290,7 +296,7 @@ function DashboardContent() {
           head={<><th>Case no.</th><th>Prov.</th><th>Project</th><th>Land use</th><th className="num">Gross (Rs)</th><th>Stage</th><th>Waiting on</th></>}
           empty={cases.length || casesLoad.error ? false : casesLoad.loading ? 'Loading cases…' : 'No compensation cases yet.'} colSpan={7}>
           {cases.slice(0, 8).map((c) => (
-            <tr key={c.case_id}>
+            <tr key={c.case_id} {...rowOpen(() => setShown({ kind: 'case', x: c }), `Show case ${c.case_code}`)}>
               <td><Link href="/cases" className="code">{c.case_code}</Link></td>
               <td><span className="pill">{c.province_code}</span></td>
               <td>{c.project_name}</td>
@@ -302,6 +308,28 @@ function DashboardContent() {
           ))}
         </Table>
       </Card>}
+
+      {shown?.kind === 'lease' && (
+        <DetailsModal open icon="cal" onClose={() => setShown(null)} title={<>Lease <span className="code">{shown.x.lease_code}</span></>}
+          sections={[{ items: [
+            ['Lease', <span className="code">{shown.x.lease_code}</span>], ['Province', shown.x.province_code], ['Project', shown.x.project_code],
+            ['Status', shown.x.lease_status && <Stage value={shown.x.lease_status} />], ['Urgency', shown.x.urgency],
+            ['Expiry', fmtDate(shown.x.end_date)], ['Days to expiry', shown.x.days_to_expiry != null ? fmtNum(shown.x.days_to_expiry) : null],
+            ['Annual rent', rs(shown.x.annual_rent)], ['Lessor(s)', shown.x.lessors, true], ['Parcels', shown.x.parcels, true],
+          ] }]}
+          actions={to('/leases') ? <Link className="btn btn-s" href="/leases">Open Leases</Link> : undefined} />
+      )}
+      {shown?.kind === 'case' && (
+        <DetailsModal open icon="doc" onClose={() => setShown(null)} title={<>Compensation case <span className="code">{shown.x.case_code}</span></>}
+          sections={[{ items: [
+            ['Case', <span className="code">{shown.x.case_code}</span>], ['Case date', shown.x.case_date && fmtDate(shown.x.case_date)],
+            ['Province', shown.x.province_code], ['Project', shown.x.project_name], ['Land used for', shown.x.land_use_code],
+            ['Owners', shown.x.owner_count != null ? fmtNum(shown.x.owner_count) : null], ['Total payable', rs(shown.x.total_amount ?? shown.x.gross_amount)],
+            ['Released', rs(shown.x.released_amount)], ['Stage', shown.x.stage_code && <Stage value={shown.x.stage_code} />],
+            ['Days at stage', shown.x.days_at_stage != null ? fmtNum(shown.x.days_at_stage) : null], ['Waiting on', shown.x.waiting_on_group],
+          ] }]}
+          actions={to('/cases') ? <Link className="btn btn-s" href="/cases">Open Compensation Cases</Link> : undefined} />
+      )}
     </>
   );
 }

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Shell from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, ErrorNote, Kpi, fmtNum, fmtDate, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, ErrorNote, Kpi, fmtNum, fmtDate, Pager, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList, RefSelect, WorkflowActions, useListQuery, RecordPicker } from '@/components/legacy/data';
 import { send, useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
@@ -26,6 +26,7 @@ function AcquisitionsContent() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...EMPTY });
   const [title, setTitle] = useState<any | null>(null);
+  const [view, setView] = useState<any | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Title checks and workflow steps: acquisitions:update in the record's province.
@@ -102,7 +103,7 @@ function AcquisitionsContent() {
             {shown.map((a: any) => {
               const done = Number(a.title_checks_done || 0), total = Number(a.title_checks_total || items.length || 0);
               return (
-                <tr key={a.id}>
+                <tr key={a.id} {...rowOpen(() => setView(a), `Show details of ${a.code}`)}>
                   <td><span className="code">{a.code}</span></td>
                   <td><span className="pill">{a.province_code}</span></td>
                   <td>{a.project_name}</td>
@@ -124,6 +125,40 @@ function AcquisitionsContent() {
         )}
         <Pager page={page} onOffset={lq.setOffset} />
       </Card>
+
+      {view && (() => {
+        const v = shown.find((x: any) => x.id === view.id) ?? view;
+        const done = Number(v.title_checks_done || 0), total = Number(v.title_checks_total || items.length || 0);
+        return (
+          <DetailsModal open icon="doc" onClose={() => setView(null)}
+            title={<>Acquisition <span className="code">{v.code}</span></>}
+            sections={[
+              { items: [
+                ['Project', `${v.project_code ?? ''} · ${v.project_name ?? ''}`],
+                ['Province', v.province_code],
+                ['Mode', v.mode],
+                ['Stage', <Stage value={v.stage_code} />],
+              ] },
+              { title: 'Land and terms', items: [
+                ['Area required (ac)', fmtNum(v.area_required, 2)],
+                ['Negotiated rate (Rs/ac)', v.negotiated_rate != null ? fmtNum(v.negotiated_rate) : null],
+                ['Surveys', v.survey_count ? `${v.survey_numbers} (${v.survey_count})` : null],
+                ['Title checks', <span className={`b ${total && done >= total ? 'b-g' : 'b-w'}`}>{done} / {total}</span>],
+                ['Target handover', v.target_handover_date ? fmtDate(v.target_handover_date) : null],
+                ['Negotiator', v.negotiator_name],
+                ['Remarks', v.remarks, true],
+              ] },
+              { title: 'Record', items: [
+                ['Created', fmtDate(v.created_at)],
+                ['Last updated', fmtDate(v.updated_at)],
+              ] },
+            ]}
+            actions={<>
+              <button type="button" className="btn btn-s" onClick={() => { setFormError(null); setTitle(v); setView(null); }}>Title checks</button>
+              <div className="acts"><WorkflowActions workflow="acquisitions" resource="/api/acquisitions" record={v} can={canEdit(v)} /></div>
+            </>} />
+        );
+      })()}
 
       <Modal open={!!title} icon="cbox" title={`Title verification — ${title?.code ?? ''}`} onClose={() => setTitle(null)}
         footer={<button className="btn btn-s" onClick={() => setTitle(null)}>Close</button>}>

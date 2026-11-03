@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell, { useLMS } from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList, RefSelect, ProvinceSelect, useListQuery, RecordPicker } from '@/components/legacy/data';
 import { send, useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
@@ -32,6 +32,7 @@ function LegalContent() {
   const [uForm, setUForm] = useState({ status: '', stay_order: false, counsel: '', financial_exposure: '', lift_reason: '' });
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [viewId, setViewId] = useState<string | null>(null);
   const canEdit = (c: any) => canIn('legal:update', c?.province_code);
   const run = async (fn: () => Promise<unknown>, done: () => void) => {
     setBusy(true); setFormError(null);
@@ -95,7 +96,7 @@ function LegalContent() {
               <th className="num">Exposure (Rs)</th><th>Stay</th><th>Status</th><th>Actions</th></>}
             empty={shown.length || error ? false : 'No legal cases.'} colSpan={11}>
             {shown.map((c: any) => (
-              <tr key={c.id}>
+              <tr key={c.id} {...rowOpen(() => setViewId(c.id), `Show details of ${c.code}`)}>
                 <td><span className="code">{c.code}</span><br /><small className="note mono">{c.court_case_no}</small></td>
                 <td><span className="pill">{c.province_code}</span></td>
                 <td>{c.court}{c.case_type && <><br /><small className="note">{c.case_type}</small></>}</td>
@@ -118,11 +119,62 @@ function LegalContent() {
         <Pager page={page} onOffset={lq.setOffset} />
       </Card>
 
+      {(() => {
+        const v = viewId ? rows.find((c: any) => c.id === viewId) : null;
+        if (!v) return null;
+        const mine = hearings.filter((h) => h.legal_case_id === v.id);
+        return (
+          <DetailsModal open icon="doc" onClose={() => setViewId(null)}
+            title={<>Legal case <span className="code">{v.code}</span></>}
+            sections={[
+              { items: [
+                ['Court case no.', v.court_case_no ? <span className="mono">{v.court_case_no}</span> : null],
+                ['Court', v.court],
+                ['Case type', v.case_type],
+                ['Status', <Stage value={v.status} />],
+              ] },
+              { title: 'Parties', items: [
+                ['Parties', v.parties, true],
+                ['Company is', v.company_role],
+                ['Counsel', v.counsel],
+              ] },
+              { title: 'Land and money', items: [
+                ['Province', v.province_code],
+                ['Project', v.project_name ? `${v.project_code ?? ''} · ${v.project_name}` : null],
+                ['Compensation case', v.case_code],
+                ['Parcels concerned', v.survey_numbers],
+                ['Landowners concerned', v.landowner_names, true],
+                ['Financial exposure (Rs)', v.financial_exposure != null ? fmtNum(v.financial_exposure) : null],
+                ['Stay order', v.stay_order ? <span className="b b-d">Stay order in force</span> : 'No'],
+              ] },
+              { title: 'Dates', items: [
+                ['Filed', v.filing_date ? fmtDate(v.filing_date) : null],
+                ['Next hearing', v.next_hearing ? fmtDate(v.next_hearing) : null],
+                ['Hearings recorded', fmtNum(v.hearing_count)],
+                ['Remarks', v.remarks, true],
+              ] },
+            ]}
+            actions={canEdit(v) && <div className="acts">
+              <button onClick={() => { setFormError(null); setHearing(v); setHForm({ hearing_date: '', proceedings: '', next_date: '' }); setViewId(null); }}>Hearing</button>
+              <button onClick={() => { setFormError(null); setUpd(v); setUForm({ status: v.status, stay_order: !!v.stay_order, counsel: v.counsel ?? '', financial_exposure: v.financial_exposure ?? '', lift_reason: '' }); setViewId(null); }}>Update</button>
+            </div>}>
+            {mine.length > 0 && (<>
+              <div className="sec-t">Hearings</div>
+              <Table caption="Hearings of this case" head={<><th>Date</th><th>Proceedings</th><th>Next date</th></>}>
+                {mine.map((h) => (
+                  <tr key={h.id}><td>{fmtDate(h.hearing_date)}</td><td>{h.proceedings || '—'}</td><td>{fmtDate(h.next_date)}</td></tr>
+                ))}
+              </Table>
+            </>)}
+          </DetailsModal>
+        );
+      })()}
+
       <Card icon="cal" title="Hearings" sub="Proceedings recorded per hearing">
         <Table caption="Hearings" head={<><th>Date</th><th>Case</th><th>Court</th><th>Proceedings</th><th>Next date</th></>}
           empty={hearings.length ? false : 'No hearings recorded.'} colSpan={5}>
           {hearings.map((h) => (
-            <tr key={h.id}>
+            <tr key={h.id} {...(rows.some((c: any) => c.id === h.legal_case_id) ? rowOpen(() => setViewId(h.legal_case_id), `Show case ${h.legal_code}`) : {})}>
               <td>{fmtDate(h.hearing_date)}</td>
               <td><span className="code">{h.legal_code}</span><br /><small className="note mono">{h.court_case_no}</small></td>
               <td>{h.court}</td>

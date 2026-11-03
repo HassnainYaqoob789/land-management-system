@@ -25,7 +25,7 @@
 
 | Username | Person (fictional) | Role / approval position | Province | Tabs | Used in part |
 |---|---|---|---|---|---|
-| `director` | Asif Rehman | **Director (all tabs, read-only demo account)** | all | **33** | 1 |
+| `director` | Asif Rehman | **Director (all tabs, all actions; demo account)** | all | **33** | 1 |
 | `admin` | Asma Rahim | System Administrator | all | 10 | 3, 4 |
 | `explorer` | Usman Ghani | Exploration Planner | Sindh | 9 | 3, 6, 7 |
 | `dirops` | Javed Akhtar | Director Operations | all | 9 | 6 |
@@ -80,23 +80,23 @@ flowchart TD
 **Sign in as `director`.**
 
 1. The sidebar shows **all 33 tabs**: Overview, Master Data, Land Operations, Finance, Records & Reports, System.
-2. Open any register, e.g. **Compensation Cases** or **Payments & Cheques**: everything is visible, but there is no Add, Edit or Approve button.
-3. Open **Landowners**: CNICs are masked (`45102-*******-3`).
+2. Open any register, e.g. **Compensation Cases** or **Payments & Cheques**: everything is visible, with the **+ Add** buttons and the workflow buttons.
+3. Click any row (e.g. a case, a user, a voucher): the full record opens in a details window with a **Close** button.
 
-**Say:** "This is the overview account the client asked for. It reads everything in every province and changes nothing, so it does not break separation of duties."
+**Say:** "This is the all-access account the client asked for. It sees every tab in every province and can add, edit and take any approval step. Two controls still apply to it, as to everyone: whoever raises or verifies a payment cannot release it, and one person takes only one step on the same record."
 
 **Then show the ladder.** Sign in, one after another, and point at the sidebar:
 
 | Account | Tabs | What they see |
 |---|---|---|
-| `director` | 33 | everything, read-only |
+| `director` | 33 | everything: add, edit, approve any one step (not payment release) |
 | `audit` | 32 | everything read-only + audit, users, roles |
 | `mland` | 27 | Head-office approvals, payment release, budgets, reports |
 | `lofield` | 23 | Field data entry in Sindh, payments raising |
 | `finance` | 16 | Vouchers, verification, holds, finance reports |
 | `admin` | 10 | Users, roles, settings, audit; no business registers |
 | `explorer` | 9 | GIS map, projects, khasras (no owners), land requests, Approvals & Alerts |
-| `viewer` | 7 | Dashboards and read-only registers |
+| `viewer` | 7 | Dashboards and read-only registers; CNICs masked |
 
 ---
 
@@ -359,7 +359,7 @@ Each approver first opens **Approvals & Alerts → Waiting on you**: the request
 | Crop | AREA-000035, `Wheat`, rate `45000`, damaged `5` ac |
 | Trees | AREA-000035, `Kikar`, `Medium`, rate `8000`, count `6` |
 | Other | AREA-000034, `Disturbance allowance`, `25000` |
-| Documents seen | tick all six |
+| Documents seen | tick all six (required before **Field Approved**; otherwise "Missing documents: …") |
 
 **Create case** → **CC-2026-0012**, *Prepared*. The system calculates (nothing typed):
 

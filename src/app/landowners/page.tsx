@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import Shell, { useLMS } from '@/components/layout/Shell';
-import { Card, Modal, Field, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtRs, fmtDate, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtRs, fmtDate, Pager, rowOpen } from '@/components/legacy/ui';
 import { useList, RefSelect, ProvinceSelect, useListQuery } from '@/components/legacy/data';
 import { LoadError } from '@/components/auth/PageGuard';
 import { send, useApi, useReference, enumOf } from '@/lib/client/api';
@@ -225,7 +225,7 @@ function LandownersContent() {
               <th className="num">Holdings</th>{canPayments && <th className="num">Paid to date (Rs)</th>}<th>Bank branch</th><th>Actions</th></>}
             empty={rows.length || error ? false : `No landowners${lq.q ? ' match the search' : ' yet'}.`} colSpan={canPayments ? 11 : 10}>
             {rows.map((lo: any) => (
-              <tr key={lo.id}>
+              <tr key={lo.id} {...rowOpen(() => openStatement(lo), `Show statement of ${lo.code}`)}>
                 <td><span className="code">{lo.code}</span></td>
                 <td>{lo.full_name}{lo.father_name && <><br /><small className="note">s/o {lo.father_name}</small></>}</td>
                 <td className="mono">{lo.cnic}</td>

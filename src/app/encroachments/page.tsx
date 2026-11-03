@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList, RefSelect, WorkflowActions, useListQuery, RecordPicker } from '@/components/legacy/data';
 import { send, useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
@@ -26,6 +26,7 @@ function EncroachmentsContent() {
   const [form, setForm] = useState({ ...EMPTY });
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [viewId, setViewId] = useState<string | null>(null);
   // The chosen project's corridors only (filtered in the database).
   const corridors = useApi(form.project_id && can('rows:read') ? `/api/rows?project_id=${form.project_id}&limit=500` : null).data?.rows ?? [];
   const set = (k: keyof typeof EMPTY) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -73,7 +74,7 @@ function EncroachmentsContent() {
             head={<><th>Code</th><th>Prov.</th><th>On</th><th>Category</th><th>Encroacher</th><th className="num">Area (ac)</th><th>Risk</th><th>Detected</th><th>Stage</th><th>Actions</th></>}
             empty={shown.length || error ? false : 'No encroachments reported.'} colSpan={10}>
             {shown.map((r: any) => (
-              <tr key={r.encroachment_id}>
+              <tr key={r.encroachment_id} {...rowOpen(() => setViewId(r.encroachment_id), `Show details of ${r.encroachment_code}`)}>
                 <td><span className="code">{r.encroachment_code}</span></td>
                 <td><span className="pill">{r.province_code}</span></td>
                 <td>{r.project_code}<br /><small className="note">{r.survey_code || r.row_code || '—'}</small></td>
@@ -93,6 +94,43 @@ function EncroachmentsContent() {
         )}
         <Pager page={page} onOffset={lq.setOffset} />
       </Card>
+
+      {(() => {
+        const v = viewId ? rows.find((r: any) => r.encroachment_id === viewId) : null;
+        if (!v) return null;
+        const riskTone = ['High', 'Critical'].includes(v.risk) ? 'b-d' : v.risk === 'Medium' ? 'b-w' : 'b-n';
+        return (
+          <DetailsModal open icon="shield" onClose={() => setViewId(null)}
+            title={<>Encroachment <span className="code">{v.encroachment_code}</span></>}
+            sections={[
+              { items: [
+                ['Project', v.project_code],
+                ['Parcel', v.survey_code],
+                ['ROW corridor', v.row_code],
+                ['Province', v.province_code],
+                ['Stage', <Stage value={v.stage_code} />],
+              ] },
+              { title: 'What was found', items: [
+                ['Category', v.category_code],
+                ['Risk', v.risk ? <span className={`b ${riskTone}`}>{v.risk}</span> : null],
+                ['Encroacher', v.encroacher],
+                ['Area affected (ac)', v.area_affected != null ? fmtNum(v.area_affected, 2) : null],
+                ['Location', v.lat != null && v.lng != null ? `${Number(v.lat).toFixed(5)}, ${Number(v.lng).toFixed(5)}` : null],
+                ['Evidence files', v.evidence_count],
+                ['Description', v.description, true],
+                ['Impact', v.impact, true],
+                ['Corrective action', v.corrective_action, true],
+              ] },
+              { title: 'Progress', items: [
+                ['Detected', v.detected_on ? `${fmtDate(v.detected_on)} (${fmtNum(v.age_days)} days ago)` : null],
+                ['Escalation level', v.escalation_level],
+                ['Resolved', v.resolved_on ? fmtDate(v.resolved_on) : null],
+              ] },
+            ]}
+            actions={<div className="acts"><WorkflowActions workflow="encroachments" resource="/api/encroachments" record={{ ...v, id: v.encroachment_id, code: v.encroachment_code }}
+              can={canIn('encroachments:update', v.province_code)} /></div>} />
+        );
+      })()}
 
       <Modal open={open} icon="shield" title="Report Encroachment" onClose={() => setOpen(false)}
         footer={<>

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtDate, Pager, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList, WorkflowActions, useListQuery } from '@/components/legacy/data';
 import { send, useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
@@ -29,6 +29,7 @@ function DbpfcContent() {
   const [fixForm, setFixForm] = useState({ fixed_rate: '', committee_ref: '', meeting_date: '' });
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [viewId, setViewId] = useState<string | null>(null);
   const set = (k: keyof typeof EMPTY) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   // DBPFC estimates are Sindh records.
   const canEdit = (r: any) => canIn('dbpfc:update', r?.province_code ?? 'SND');
@@ -84,7 +85,7 @@ function DbpfcContent() {
               <th className="num">Fixed / ac</th><th className="num">Yearly (Rs)</th><th>Committee</th><th>Stage</th><th>Actions</th></>}
             empty={shown.length || error ? false : 'No estimates.'} colSpan={10}>
             {shown.map((r: any) => (
-              <tr key={r.dbpfc_id}>
+              <tr key={r.dbpfc_id} {...rowOpen(() => setViewId(r.dbpfc_id), `Show details of ${r.dbpfc_code}`)}>
                 <td><span className="code">{r.dbpfc_code}</span></td>
                 <td>{r.district_name}</td>
                 <td><span className="mono">{r.project_code}</span></td>
@@ -107,11 +108,65 @@ function DbpfcContent() {
         <Pager page={page} onOffset={lq.setOffset} />
       </Card>
 
+      {(() => {
+        const v = viewId ? rows.find((r: any) => r.dbpfc_id === viewId) : null;
+        if (!v) return null;
+        const changes = history.filter((h) => h.dbpfc_id === v.dbpfc_id);
+        return (
+          <DetailsModal open icon="receipt" onClose={() => setViewId(null)}
+            title={<>DBPFC estimate <span className="code">{v.dbpfc_code}</span></>}
+            sections={[
+              { items: [
+                ['Project', v.project_code],
+                ['District', v.district_name],
+                ['Province', v.province_code],
+                ['Stage', <Stage value={v.stage_code} />],
+              ] },
+              { title: 'Rates', items: [
+                ['Area (ac)', fmtNum(v.area_acres, 2)],
+                ['Estimated rate (Rs/ac)', v.estimated_rate != null ? fmtNum(v.estimated_rate) : null],
+                ['Fixed rate (Rs/ac)', v.fixed_rate != null ? fmtNum(v.fixed_rate) : <span className="note">not fixed yet</span>],
+                ['Applied rate (Rs/ac)', v.applied_rate != null ? fmtNum(v.applied_rate) : null],
+                ['Yearly amount (Rs)', v.annual_amount != null ? fmtNum(v.annual_amount) : null],
+                ['Paid so far (Rs)', v.paid_amount != null ? fmtNum(v.paid_amount) : null],
+                ['Rate revisions', v.rate_revisions],
+                ['Parcels', v.parcels],
+              ] },
+              { title: 'Committee', items: [
+                ['Committee reference', v.committee_ref],
+                ['Meeting date', v.meeting_date ? fmtDate(v.meeting_date) : null],
+                ['Remarks', v.remarks, true],
+              ] },
+            ]}
+            actions={<div className="acts">
+              {canEdit(v) && v.stage_code !== 'Stopped' && (
+                <button onClick={() => { setFormError(null); setFix(v); setFixForm({ fixed_rate: v.fixed_rate ?? '', committee_ref: v.committee_ref ?? '', meeting_date: v.meeting_date?.slice(0, 10) ?? '' }); setViewId(null); }}>Record rate</button>
+              )}
+              <WorkflowActions workflow="dbpfc" resource="/api/dbpfc" record={{ ...v, id: v.dbpfc_id, code: v.dbpfc_code }} can={canEdit(v)} />
+            </div>}>
+            {changes.length > 0 && (<>
+              <div className="sec-t">Rate changes</div>
+              <Table caption="Rate changes for this estimate" head={<><th className="num">Estimated</th><th className="num">Fixed</th><th>Changed</th><th>By</th><th>Note</th></>}>
+                {changes.map((h) => (
+                  <tr key={h.id}>
+                    <td className="num">{h.estimated_rate != null ? fmtNum(h.estimated_rate) : '—'}</td>
+                    <td className="num">{h.fixed_rate != null ? fmtNum(h.fixed_rate) : '—'}</td>
+                    <td>{new Date(h.changed_at).toLocaleString('en-GB')}</td>
+                    <td>{h.changed_by_name || '—'}</td>
+                    <td>{h.note || '—'}</td>
+                  </tr>
+                ))}
+              </Table>
+            </>)}
+          </DetailsModal>
+        );
+      })()}
+
       <Card icon="receipt" title="Rate history" sub="Every change to an estimated or fixed rate, and who made it">
         <Table caption="DBPFC rate history" head={<><th>Estimate</th><th className="num">Estimated</th><th className="num">Fixed</th><th>Changed</th><th>By</th><th>Note</th></>}
           empty={history.length ? false : 'No rate changes recorded.'} colSpan={6}>
           {history.map((h) => (
-            <tr key={h.id}>
+            <tr key={h.id} {...(rows.some((r: any) => r.dbpfc_id === h.dbpfc_id) ? rowOpen(() => setViewId(h.dbpfc_id), `Show estimate ${h.dbpfc_code}`) : {})}>
               <td><span className="code">{h.dbpfc_code}</span></td>
               <td className="num">{h.estimated_rate != null ? fmtNum(h.estimated_rate) : '—'}</td>
               <td className="num">{h.fixed_rate != null ? fmtNum(h.fixed_rate) : '—'}</td>

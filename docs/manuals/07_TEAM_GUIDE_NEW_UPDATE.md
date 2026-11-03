@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | 1 | Exploration request → approvals → purchase → progress → completion | Request follows its acquisition stage; acquisition **Handover** marks khasras Acquired/Leased and closes the request as **Completed (land ready)**; land requests in **Approvals & Alerts** with notices to the requester; lease form pre-filled from a request; **Mark land ready** for lease/case/DBPFC hand-overs | Land Requests, Approvals & Alerts, Acquisition & Title | explorer, dirops, regmgr, landaffairs, lofield |
 | 1 | Temporary access | Role **"Valid until"** date: set, change, remove; access stops automatically after that day (Pakistan time) | Users & Roles → Access | admin |
-| 2 | One account with all tabs | Demo account **`director`**: 33 tabs, read-only, CNIC masked | whole menu | director |
+| 2 | One account with all tabs | Demo account **`director`**: 33 tabs, every action except payment release, every approval position | whole menu | director |
 | 3 | No duplicate / wrong entries | Same CNIC blocks Save; similar name + father name warns; duplicate khasra refused with the existing code | Landowners, Survey / Khasra Register | lofield |
 | 4 | Sold land → payments to new owner | Applying a mutation moves the seller's **unpaid** case share to the buyer/heirs (paid part stays; parcel-wise if he keeps other land in the case), adds them as lessors, and **holds** the seller's unreleased vouchers. Finance gets **Cancel voucher** | Mutation & Succession → Details; Payments & Cheques | lofield, sradmin, legal, mland, finance |
 | 5 | Court case → payment hold | Already existed. New: the Legal Case form now has **Parcels concerned** and **Landowners concerned**; without them a stay held nothing | Legal & Litigation | legal, mland, finance |
@@ -120,7 +120,11 @@ Use the data and steps in `06b_SHORT_DEMO` (Part 0 creates the data).
 |---|---|---|---|
 | T1 | Phone view (F12 → device iPhone 12 Pro) | viewer | "Select province" heading and Sindh card at the top |
 | T2 | Menu sizes | director / explorer / viewer | 33 / 9 / 7 tabs |
-| T3 | Director cannot change anything | director | no Add / Edit / approve buttons; CNIC masked |
+| T3 | Director can act everywhere | director | Add buttons on every register, "→ next" on workflows; payment **Release** refused (one person cannot raise/verify and release); on one record only one step (separation of duties) |
+| T3a | Row details | any | click a row on Users, Cases, Payments, Surveys, Audit…: a details window opens; **Close** / Esc shuts it; a row's own button (e.g. Edit) still opens its own dialog |
+| T3b | Only your step's button | legal on a *Legal Cleared* mutation; nego on a *Negotiation* acquisition | no "→" button; the row shows "Waiting on Manager Land (HO)" / "Waiting on DM / Team Lead (Field)" |
+| T3c | Documents before field approval | dmfield on a case with unticked documents | "Missing documents: …"; tick them in the case's **Document checklist**, then it works |
+| T3d | Shares before mutation | lofield creates a mutation for an owner with no recorded shares | at **Approved & Applied**: "Select the holdings to transfer." Record shares first |
 | T4 | Set role end date | admin | grant shows "until …"; past date refused |
 | T5 | Set Jireb size in Sindh | admin | row shows the new per-acre figure, "confirmed" |
 | T6 | Khasra unit list | lofield | unit dropdown: "Units of SND" first, then "Other units" |

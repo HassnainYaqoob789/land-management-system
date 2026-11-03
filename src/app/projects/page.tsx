@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell, { useLMS } from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtRsM } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtRsM, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList, RefSelect, ProvinceSelect } from '@/components/legacy/data';
 import { LoadError } from '@/components/auth/PageGuard';
 import { send, useApi } from '@/lib/client/api';
@@ -30,6 +30,8 @@ function ProjectsContent() {
   const [editing, setEditing] = useState<any | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [viewId, setViewId] = useState<string | null>(null);
+  const viewLoad = useApi<any>(viewId ? `/api/projects?id=${viewId}` : null);
   const set = (k: keyof typeof EMPTY) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const districts = units.filter((u: any) => u.province_code === form.province_code && Number(u.level_no) === 0);
 
@@ -46,6 +48,13 @@ function ProjectsContent() {
       }
       setMode(null);
     } catch (err: any) { setFormError(err.message); } finally { setBusy(false); }
+  };
+
+  const openEdit = (p: any) => {
+    setFormError(null); setEditing(p);
+    setForm({ ...EMPTY, code: p.project_code, name: p.project_name, type_code: p.type_code, block: p.block, province_code: p.province_code,
+      district_id: p.district_id ?? '', required_area: p.required_area ?? '', description: p.description ?? '', status: p.status });
+    setMode('edit');
   };
 
   const needle = q.trim().toLowerCase();
@@ -76,7 +85,7 @@ function ProjectsContent() {
               <th className="num">Linked (ac)</th>{showCases && <><th className="num">Cases</th><th className="num">Approved (Rs)</th></>}{showPaid && <th className="num">Released (Rs)</th>}<th>Status</th><th>Actions</th></>}
             empty={shown.length || error ? false : 'No projects.'} colSpan={10 + (showCases ? 2 : 0) + (showPaid ? 1 : 0)}>
             {shown.map((p: any) => (
-              <tr key={p.project_id}>
+              <tr key={p.project_id} {...rowOpen(() => setViewId(p.project_id), `Show project ${p.project_code}`)}>
                 <td><span className="code">{p.project_code}</span></td>
                 <td>{p.project_name}</td>
                 <td>{p.type_code}</td>
@@ -90,18 +99,50 @@ function ProjectsContent() {
                 {showPaid && <td className="num">{fmtNum(p.released_amount)}</td>}
                 <td><Stage value={p.status} /></td>
                 <td><div className="acts">{canIn('projects:update', p.province_code) && (
-                  <button onClick={() => {
-                    setFormError(null); setEditing(p);
-                    setForm({ ...EMPTY, code: p.project_code, name: p.project_name, type_code: p.type_code, block: p.block, province_code: p.province_code,
-                      district_id: p.district_id ?? '', required_area: p.required_area ?? '', description: p.description ?? '', status: p.status });
-                    setMode('edit');
-                  }}>Edit</button>
+                  <button onClick={() => openEdit(p)}>Edit</button>
                 )}</div></td>
               </tr>
             ))}
           </Table>
         )}
       </Card>
+
+      {viewId && (() => {
+        const row = rows.find((r: any) => r.project_id === viewId);
+        const v = viewLoad.data?.project ?? row;
+        const parcels: any[] = viewLoad.data?.surveys ?? [];
+        if (!v) return null;
+        return (
+          <DetailsModal open icon="rig" onClose={() => setViewId(null)}
+            title={<>{v.project_name} <span className="code">{v.project_code}</span></>}
+            sections={[
+              { title: 'Project', items: [
+                ['Type', v.type_code],
+                ['Block', v.block],
+                ['Province', v.province_code],
+                ['District', v.district_name],
+                ['Status', <Stage value={v.status} />],
+                ['Description', v.description, true],
+              ] },
+              { title: 'Land', items: [
+                ['Required (acres)', v.required_area != null ? fmtNum(v.required_area, 2) : null],
+                ['Linked (acres)', `${fmtNum(v.linked_area, 2)} · ${fmtNum(v.linked_parcels)} parcel(s)`],
+                v.parcels_held != null && ['Parcels held', fmtNum(v.parcels_held)],
+                v.active_leases != null && ['Active leases', fmtNum(v.active_leases)],
+                v.spatial_feature_count != null && ['Map features', fmtNum(v.spatial_feature_count)],
+                parcels.length > 0 && ['Linked parcels', parcels.map((s) => <React.Fragment key={s.survey_id}><span className="code">{s.survey_code}</span> · Survey {s.survey_no}{s.block_no ? ` / ${s.block_no}` : ''} · {fmtNum(s.total_area, 2)} ac · {s.status_code}<br /></React.Fragment>), true],
+              ] },
+              (showCases || showPaid) && { title: 'Money', items: [
+                showCases && ['Cases', `${fmtNum(v.live_cases)} live · ${fmtNum(v.approved_cases)} approved`],
+                showCases && ['Approved compensation (Rs)', fmtNum(v.approved_compensation)],
+                showPaid && ['Released (Rs)', fmtNum(v.released_amount)],
+              ] },
+            ].filter(Boolean) as any}
+            actions={canIn('projects:update', v.province_code) && row && <button type="button" className="btn btn-s" onClick={() => { setViewId(null); openEdit(row); }}>Edit</button>}>
+            {viewLoad.error && <LoadError {...viewLoad} what="this project's parcels" />}
+          </DetailsModal>
+        );
+      })()}
 
       <Modal open={!!mode} icon="rig" title={mode === 'edit' ? `Edit project — ${editing?.project_code}` : 'Add Project'} onClose={() => setMode(null)}
         footer={<>

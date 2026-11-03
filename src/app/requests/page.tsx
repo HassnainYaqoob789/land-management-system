@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Shell, { useLMS } from '@/components/layout/Shell';
 import { RefSelect } from '@/components/legacy/data';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Select, Count, Loading, ErrorNote, Kpi, fmtNum, fmtDate } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Select, Count, Loading, ErrorNote, Kpi, fmtNum, fmtDate, rowOpen } from '@/components/legacy/ui';
 import { LoadError } from '@/components/auth/PageGuard';
 import { send, useApi } from '@/lib/client/api';
 import { useCan, useCanIn } from '@/lib/client/permissions';
@@ -212,7 +212,7 @@ function RequestsContent() {
             head={<><th>Request no.</th><th>Project</th><th>Purpose &amp; deh</th><th className="num">Area</th><th>Required by</th><th>Workflow</th><th>Actions</th></>}
             empty={filtered.length ? false : search ? 'No land requests match the search.' : 'No land requests.'} colSpan={7}>
             {filtered.map((r) => (
-              <tr key={r.id}>
+              <tr key={r.id} {...rowOpen(() => setDetailId(r.id), `Show details of ${r.code}`)}>
                 <td><span className="code">{r.code}</span><br />
                   <span className={`b ${r.priority === 'Standard' ? 'b-n' : 'b-d'}`}>{r.priority}</span>
                   <br /><small className="note">by {r.created_by_name}{r.is_mine ? ' (you)' : ''}</small></td>

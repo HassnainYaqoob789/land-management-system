@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell from '@/components/layout/Shell';
-import { Card, Modal, Field, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum } from '@/components/legacy/ui';
+import { Card, Modal, Field, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList, RefSelect } from '@/components/legacy/data';
 import { LoadError } from '@/components/auth/PageGuard';
 import { send, useApi } from '@/lib/client/api';
@@ -52,6 +52,7 @@ function DocumentsContent() {
   const [reason, setReason] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<any | null>(null);
   const src = ENTITIES[up.entity];
   const records = (useApi(src ? src.url : null).data?.[src?.key ?? ''] as any[]) ?? [];
 
@@ -100,7 +101,7 @@ function DocumentsContent() {
               <th>SHA-256</th><th>Uploaded</th><th>Actions</th></>}
             empty={shown.length ? false : 'No documents.'} colSpan={9}>
             {shown.map((d: any) => (
-              <tr key={d.id}>
+              <tr key={d.id} {...rowOpen(() => setView(d), `Show document ${d.code}`)}>
                 <td><span className="code">{d.code}</span></td>
                 <td>{d.file_name}<br /><small className="note">{d.mime_type}</small></td>
                 <td>{ENTITIES[d.entity]?.label ?? d.entity}<br /><small className="note mono">{d.record_code}</small></td>
@@ -118,6 +119,38 @@ function DocumentsContent() {
           </Table>
         )}
       </Card>
+
+      {view && (() => {
+        const docLogs = logs.filter((l: any) => l.document_id === view.id);
+        return (
+          <DetailsModal open icon="folder" onClose={() => setView(null)}
+            title={<>Document <span className="code">{view.code}</span></>}
+            sections={[
+              { title: 'File', items: [
+                ['File name', view.file_name, true],
+                ['Type', view.mime_type],
+                ['Size', sizeOf(Number(view.size_bytes))],
+                ['Version', view.version],
+                ['SHA-256', <span className="mono u-fs-11">{view.sha256_hex}</span>, true],
+              ] },
+              { title: 'Attached to', items: [
+                ['Record type', ENTITIES[view.entity]?.label ?? view.entity],
+                ['Record', <span className="code">{view.record_code}</span>],
+                ['Province', view.province_code],
+                ['Category', view.category_name],
+              ] },
+              { title: 'History', items: [
+                ['Uploaded', `${new Date(view.uploaded_at).toLocaleString('en-GB')} · ${view.uploaded_by_name || '—'}`],
+                ['Accesses logged', fmtNum(view.access_count)],
+                docLogs.length > 0 && ['Recent access', docLogs.map((l: any) => <React.Fragment key={l.id}>{new Date(l.accessed_at).toLocaleString('en-GB')} · {l.action} · {l.user_name || '—'}<br /></React.Fragment>), true],
+              ] },
+            ]}
+            actions={<>
+              <a className="btn btn-s" href={`/api/documents?download=${view.id}`}>Download</a>
+              {canIn('documents:update', view.province_code) && <button type="button" className="btn btn-s" onClick={() => { const d = view; setView(null); setFormError(null); setReason(''); setArchive(d); }}>Archive</button>}
+            </>} />
+        );
+      })()}
 
       {body && <Card icon="receipt" title="Access log" sub="Latest downloads and views">
         <Table caption="Document access log" head={<><th>When</th><th>Document</th><th>Action</th><th>By</th></>}

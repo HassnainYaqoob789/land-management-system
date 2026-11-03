@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell from '@/components/layout/Shell';
-import { Card, Table, Toolbar, SearchBox, Select, Count, Tabs, Loading } from '@/components/legacy/ui';
+import { Card, Table, Toolbar, SearchBox, Select, Count, Tabs, Loading, rowOpen, DetailsModal, type DetailSection } from '@/components/legacy/ui';
 import { LoadError } from '@/components/auth/PageGuard';
 import { useApi } from '@/lib/client/api';
 
@@ -15,12 +15,61 @@ export default function AuditPage() {
 }
 
 type AuditTab = 'events' | 'versions' | 'auth' | 'docs';
+type View = null | { kind: AuditTab; x: any };
+
+const when = (t?: string | null) => (t ? new Date(t).toLocaleString('en-GB') : null);
+/** JSON shown in full, wrapped, for the details dialog. */
+const Json = ({ v }: { v: unknown }) => (v == null || (typeof v === 'object' && !Object.keys(v as object).length) ? null
+  : <pre className="mono u-fs-11" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0, fontWeight: 400 }}>{typeof v === 'string' ? v : JSON.stringify(v, null, 2)}</pre>);
+
+function viewOf(v: NonNullable<View>): { title: React.ReactNode; sections: DetailSection[] } {
+  const x = v.x;
+  switch (v.kind) {
+    case 'events': return {
+      title: <>Audit event <span className="code">{x.record_code || String(x.record_id ?? '').slice(0, 8)}</span></>,
+      sections: [
+        { items: [['When', when(x.occurred_at)], ['User', x.actor_username || 'system'], ['Role', x.actor_role], ['Database role', x.db_role],
+          ['Action', x.action], ['Record type', x.entity], ['Record', x.record_code], ['Province', x.province_code],
+          ['Transaction', x.txid != null ? <span className="mono">{x.txid}</span> : null], ['Note', x.note, true],
+          ['Changed fields', (x.changed_fields ?? []).join(', '), true]] },
+        { title: 'Changes', items: [['Before / after', <Json v={x.changes} />, true]] },
+      ],
+    };
+    case 'versions': return {
+      title: <>Version v{x.version ?? x.version_no ?? 1} <span className="code">{x.record_code || String(x.record_id ?? '').slice(0, 8)}</span></>,
+      sections: [
+        { items: [['Record type', x.entity || x.table_name], ['Province', x.province_code], ['Version', x.version ?? x.version_no],
+          ['Valid from', when(x.valid_from || x.captured_at)], ['Valid to', when(x.valid_to) ?? 'current'], ['By', x.created_by_username || x.actor_username || 'system']] },
+        { title: 'Snapshot', items: [['Record as saved', <Json v={x.snapshot ?? x.row_snapshot} />, true]] },
+      ],
+    };
+    case 'auth': return {
+      title: <>Sign-in event · {x.event_type}</>,
+      sections: [
+        { items: [['When', when(x.occurred_at)], ['Event', x.event_type],
+          ['Outcome', <span className={`b ${x.outcome === 'success' ? 'b-g' : 'b-d'}`}>{x.outcome}</span>],
+          ['Username tried', x.username_tried || x.username], ['IP address', (x.source_ip || x.ip_addr) && <span className="mono">{x.source_ip || x.ip_addr}</span>],
+          ['Browser', x.user_agent, true], ['Detail', x.detail || x.reason, true],
+          ['Correlation id', x.correlation_id && <span className="mono">{x.correlation_id}</span>]] },
+        { title: 'Metadata', items: [['Metadata', <Json v={x.metadata} />, true]] },
+      ],
+    };
+    case 'docs': return {
+      title: <>Document access <span className="code">{x.doc_code}</span></>,
+      sections: [{ items: [['When', when(x.accessed_at)], ['Document', x.doc_code], ['File', x.file_name || x.doc_title],
+        ['Attached to', [x.entity, x.record_code].filter(Boolean).join(' · ')], ['User', x.user_name || x.username || 'system'],
+        ['Action', x.action], ['IP address', x.source_ip && <span className="mono">{x.source_ip}</span>]] }],
+    };
+  }
+}
 
 function AuditContent() {
   const [tab, setTab] = useState<AuditTab>('events');
   const [entityFilter, setEntityFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [view, setView] = useState<View>(null);
+  const viewing = view ? viewOf(view) : null;
 
   // Through useApi so a refusal shows as "no access", never as an empty trail (UI-08).
   const params = new URLSearchParams();
@@ -77,7 +126,7 @@ function AuditContent() {
               head={<><th>When</th><th>User</th><th>Action</th><th>Record</th><th>Prov.</th><th>Note</th><th>Changes</th></>}
               empty={filtered.length ? false : 'No audit events match the filter.'} colSpan={7}>
               {filtered.map((e) => (
-                <tr key={e.id}>
+                <tr key={e.id} {...rowOpen(() => setView({ kind: 'events', x: e }), 'Show the full event')}>
                   <td className="u-nowrap">{new Date(e.occurred_at).toLocaleString('en-GB')}</td>
                   <td>{e.actor_username || 'system'}{e.actor_role && <><br /><small className="note">{e.actor_role}</small></>}</td>
                   <td><span className={`b ${e.action === 'TRANSITION' ? 'b-i' : e.action === 'EXECUTE' ? 'b-g' : 'b-n'}`}>{e.action}</span></td>
@@ -96,14 +145,14 @@ function AuditContent() {
               head={<><th>When</th><th>Table / Entity</th><th>Record</th><th>Operation</th><th>Version</th><th>Actor</th><th>Snapshot</th></>}
               empty={versions.length ? false : 'No version snapshots recorded.'} colSpan={7}>
               {versions.map((v: any, idx: number) => (
-                <tr key={v.version_id || idx}>
+                <tr key={v.id || v.version_id || idx} {...rowOpen(() => setView({ kind: 'versions', x: v }), 'Show the full snapshot')}>
                   <td className="u-nowrap">{v.captured_at ? new Date(v.captured_at).toLocaleString('en-GB') : '—'}</td>
                   <td><span className="pill">{v.table_name || v.entity}</span></td>
                   <td className="mono">{v.record_code || String(v.record_id || '').slice(0, 8)}</td>
                   <td><span className="b b-i">{v.operation || 'SNAPSHOT'}</span></td>
-                  <td className="num">v{v.version_no || 1}</td>
-                  <td>{v.actor_username || 'system'}</td>
-                  <td className="mono u-fs-11">{v.row_snapshot ? JSON.stringify(v.row_snapshot).slice(0, 110) : '—'}</td>
+                  <td className="num">v{v.version ?? v.version_no ?? 1}</td>
+                  <td>{v.created_by_username || v.actor_username || 'system'}</td>
+                  <td className="mono u-fs-11">{(v.snapshot ?? v.row_snapshot) ? JSON.stringify(v.snapshot ?? v.row_snapshot).slice(0, 110) : '—'}</td>
                 </tr>
               ))}
             </Table>
@@ -113,13 +162,13 @@ function AuditContent() {
               head={<><th>When</th><th>Event</th><th>User</th><th>Outcome</th><th>Reason</th><th>IP Address</th></>}
               empty={authEvents.length ? false : 'No authentication events recorded.'} colSpan={6}>
               {authEvents.map((a: any) => (
-                <tr key={a.id}>
+                <tr key={a.id} {...rowOpen(() => setView({ kind: 'auth', x: a }), 'Show the full sign-in event')}>
                   <td className="u-nowrap">{new Date(a.occurred_at).toLocaleString('en-GB')}</td>
                   <td><span className="pill">{a.event_type}</span></td>
-                  <td>{a.username || '—'}</td>
+                  <td>{a.username_tried || a.username || '—'}</td>
                   <td><span className={`b ${a.outcome === 'success' ? 'b-g' : 'b-d'}`}>{a.outcome}</span></td>
-                  <td>{a.reason || '—'}</td>
-                  <td className="mono">{a.ip_addr || '—'}</td>
+                  <td>{a.detail || a.reason || '—'}</td>
+                  <td className="mono">{a.source_ip || a.ip_addr || '—'}</td>
                 </tr>
               ))}
             </Table>
@@ -129,9 +178,9 @@ function AuditContent() {
               head={<><th>When</th><th>Document</th><th>User</th><th>Action</th></>}
               empty={docLogs.length ? false : 'No document access events recorded.'} colSpan={4}>
               {docLogs.map((d: any) => (
-                <tr key={d.id}>
+                <tr key={d.id} {...rowOpen(() => setView({ kind: 'docs', x: d }), 'Show access details')}>
                   <td className="u-nowrap">{new Date(d.accessed_at).toLocaleString('en-GB')}</td>
-                  <td><span className="code">{d.doc_code}</span> — {d.doc_title}</td>
+                  <td><span className="code">{d.doc_code}</span> — {d.file_name || d.doc_title}</td>
                   <td>{d.username || 'system'}</td>
                   <td><span className="b b-i">{d.action}</span></td>
                 </tr>
@@ -140,6 +189,7 @@ function AuditContent() {
           )}
         </>
       )}
+      {viewing && <DetailsModal open icon="receipt" title={viewing.title} sections={viewing.sections} onClose={() => setView(null)} />}
     </Card>
   );
 }

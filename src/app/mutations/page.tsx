@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtRs, fmtDate, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, Kpi, fmtNum, fmtRs, fmtDate, Pager, rowOpen } from '@/components/legacy/ui';
 import { useList, RefSelect, WorkflowActions, useListQuery, RecordPicker } from '@/components/legacy/data';
 import { send, useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
@@ -86,7 +86,7 @@ function MutationsContent() {
               <th>Revenue mutation</th><th>Certificate</th><th>Stage</th><th>Actions</th></>}
             empty={shown.length || error ? false : 'No mutations.'} colSpan={10}>
             {shown.map((m: any) => (
-              <tr key={m.id}>
+              <tr key={m.id} {...rowOpen(() => setDetail(m), `Show details of ${m.code}`)}>
                 <td><span className="code">{m.code}</span></td>
                 <td><span className="pill">{m.province_code}</span></td>
                 <td>{m.mutation_type}</td>

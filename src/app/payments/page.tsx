@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Shell, { useLMS } from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Tabs, Loading, Kpi, fmtNum, fmtDate, fmtRsM, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Tabs, Loading, Kpi, fmtNum, fmtDate, fmtRsM, Pager, rowOpen, DetailsModal, type DetailSection } from '@/components/legacy/ui';
 import { useList, useListQuery, RefSelect, RecordPicker } from '@/components/legacy/data';
 import { LoadError } from '@/components/auth/PageGuard';
 import { ApiError, send, useApi } from '@/lib/client/api';
@@ -16,7 +16,9 @@ export default function PaymentsPage() {
 
 type TabKey = 'vouchers' | 'releases' | 'liabilities' | 'holds' | 'reconciliation';
 type Dialog = null | { kind: 'request' } | { kind: 'release' | 'verify'; v: any } | { kind: 'receipt'; r: any } | { kind: 'allocate'; l: any }
-  | { kind: 'hold' } | { kind: 'lift'; h: any } | { kind: 'reconcile' } | { kind: 'reverse'; r: any; confirming: boolean } | { kind: 'cancel'; v: any };
+  | { kind: 'hold' } | { kind: 'lift'; h: any } | { kind: 'reconcile' } | { kind: 'reverse'; r: any; confirming: boolean } | { kind: 'cancel'; v: any }
+  | { kind: 'view'; what: ViewKind; x: any };
+type ViewKind = 'voucher' | 'release' | 'receipt' | 'liability' | 'allocation' | 'hold' | 'run' | 'exception';
 
 /** A landowner in a picker: name and CNIC exactly as the server sent it (masked without pii:read). */
 const ownerLabel = (l: { full_name?: string; cnic?: string | null }) => `${l.full_name ?? ''}${l.cnic ? ` (${l.cnic})` : ''}`;
@@ -227,6 +229,115 @@ function PaymentsContent() {
 
   const project = projects.find((p: any) => p.project_id === f('project_id'));
 
+  // Read-only details of the clicked row (fields the list already carries).
+  const when = (t?: string | null) => (t ? new Date(t).toLocaleString('en-GB') : null);
+  const rs = (v: unknown) => (v === null || v === undefined || v === '' ? null : formatPKR(Number(v)));
+  const period = (a?: string | null, b?: string | null) => (a ? `${fmtDate(a)}${b ? ` – ${fmtDate(b)}` : ''}` : null);
+  const viewOf = (what: ViewKind, x: any): { title: React.ReactNode; icon: string; sections: DetailSection[]; actions?: React.ReactNode } => {
+    switch (what) {
+      case 'voucher': return {
+        title: <>Voucher <span className="code">{x.code}</span></>, icon: 'wallet',
+        sections: [
+          { title: 'Voucher', items: [
+            ['Stage', <><Stage value={x.stage_code} />{x.is_on_hold && <> <span className="b b-d">On hold</span></>}</>],
+            ['Province', x.province_code],
+            ['Project', x.project_code ? `${x.project_code} · ${x.project_name ?? ''}` : null],
+            ['Compensation case', x.case_code],
+            ['Category', x.category_code], ['Pay type', x.pay_type], ['Payment mode', x.payment_mode], ['Land class', x.land_class],
+            ['Period', period(x.period_from, x.period_to)], ['Requested', when(x.created_at)], ['Remarks', x.remarks, true]] },
+          { title: 'Payee', items: [['Payee', x.payee], ['CNIC', x.cnic && <span className="mono">{x.cnic}</span>], ['Tax status', x.tax_status]] },
+          { title: 'Amounts', items: [['Gross', rs(x.gross_amount)],
+            ['Withholding tax', x.wht_amount != null ? `${rs(x.wht_amount)} (${Number(x.wht_pct)}%)` : null], ['Net payable', rs(x.net_amount)]] },
+          { title: 'Cheque', items: x.cheque_no ? [['Cheque no.', <span className="mono">{x.cheque_no}</span>], ['Cheque date', fmtDate(x.cheque_date)],
+            ['Released', when(x.released_at)], ['Receipts', fmtNum(x.receipt_count)]] : [] },
+        ],
+        actions: <>
+          {x.stage_code === 'Requested' && canHere(['verify'], x.province_code) &&
+            <button type="button" className="btn btn-s" onClick={() => open({ kind: 'verify', v: x })}>Verify</button>}
+          {x.stage_code === 'Verified' && canHere(['release'], x.province_code) &&
+            <button type="button" className="btn btn-s" disabled={x.is_on_hold} title={x.is_on_hold ? 'A hold blocks release' : undefined}
+              onClick={() => open({ kind: 'release', v: x }, { cheque_date: today() })}>Release cheque</button>}
+          {['Requested', 'Verified'].includes(x.stage_code) && canHere(['verify', 'release'], x.province_code) &&
+            <button type="button" className="btn btn-s" onClick={() => open({ kind: 'cancel', v: x })}>Cancel voucher</button>}
+        </>,
+      };
+      case 'release': return {
+        title: <>Cheque <span className="mono">{x.cheque_no}</span></>, icon: 'receipt',
+        sections: [
+          { title: 'Cheque', items: [['Cheque no.', <span className="mono">{x.cheque_no}</span>], ['Cheque date', fmtDate(x.cheque_date)],
+            ['Amount', rs(x.released_amount)], ['Released', when(x.released_at)], ['Released by', x.released_by],
+            ['Status', x.reversed_at ? <span className="b b-d">Reversed {when(x.reversed_at)}</span> : <span className="b b-g">Released</span>],
+            ['Receipts', fmtNum(x.receipt_count)]] },
+          { title: 'Voucher', items: [['Voucher', <span className="code">{x.voucher_code}</span>], ['Province', x.province_code], ['Project', x.project_code],
+            ['Case', x.case_code], ['Lease', x.lease_code], ['Category', x.category_code], ['Pay type', x.pay_type], ['Period', period(x.period_from, x.period_to)]] },
+          { title: 'Payee', items: [['Payee', x.payee], ['Landowner code', x.landowner_code], ['CNIC', x.cnic && <span className="mono">{x.cnic}</span>]] },
+          { title: 'Amounts', items: [['Gross', rs(x.gross_amount)], ['Withholding tax', rs(x.wht_amount)], ['Net', rs(x.net_amount)]] },
+        ],
+        actions: canHere(['verify', 'release'], x.province_code) && !x.reversed_at
+          ? <button type="button" className="btn btn-s" onClick={() => open({ kind: 'receipt', r: x }, { received_date: today() })}>Record receipt</button> : undefined,
+      };
+      case 'receipt': return {
+        title: <>Receipt <span className="mono">{x.receipt_no}</span></>, icon: 'receipt',
+        sections: [{ items: [['Receipt no.', <span className="mono">{x.receipt_no}</span>], ['Cheque', <span className="mono">{x.cheque_no}</span>],
+          ['Voucher', <span className="code">{x.voucher_code}</span>], ['Received on', fmtDate(x.received_date || x.received_on)],
+          ['Acknowledged by', x.acknowledged_by],
+          ['Acknowledging CNIC', (x.received_by_cnic || x.acknowledged_cnic) && <span className="mono">{x.received_by_cnic || x.acknowledged_cnic}</span>],
+          ['Recorded', when(x.recorded_at)], ['Recorded by', x.verified_by_name], ['Remarks', x.remarks || x.note, true]] }],
+        actions: <button type="button" className="btn btn-s" onClick={() => printReceipt(x.id)} disabled={printing === x.id}>{printing === x.id ? 'Preparing…' : 'Print receipt'}</button>,
+      };
+      case 'liability': return {
+        title: <>Liability <span className="code">{x.case_code}</span></>, icon: 'calc',
+        sections: [
+          { title: 'Case', items: [['Case', <span className="code">{x.case_code}</span>], ['Province', x.province_code],
+            ['Project', x.project_code ? `${x.project_code} · ${x.project_name ?? ''}` : x.project_name],
+            ['Approved', fmtDate(x.approved_at)], ['Days since approval', fmtNum(x.days_since_approval)],
+            ['Settlement', <Stage value={x.settlement_status} />], ['Payees', x.payees, true]] },
+          { title: 'Amounts', items: [['Approved award', rs(x.approved_amount)], ['Adjustments', rs(x.adjustment_amount)], ['Payable', rs(x.payable_amount)],
+            ['Allocated', rs(x.allocated_amount)], ['Released (gross)', rs(x.released_amount)], ['Released (net)', rs(x.released_net_amount)],
+            ['Withholding tax', rs(x.wht_amount)], ['Outstanding', x.outstanding_amount != null ? <b>{rs(x.outstanding_amount)}</b> : null]] },
+        ],
+        actions: canHere(['create', 'verify'], x.province_code)
+          ? <button type="button" className="btn btn-s" onClick={() => open({ kind: 'allocate', l: x })}>Allocate voucher</button> : undefined,
+      };
+      case 'allocation': return {
+        title: <>Allocation <span className="code">{x.payment_code}</span></>, icon: 'calc',
+        sections: [{ items: [['Voucher', <span className="code">{x.payment_code}</span>], ['Case', <span className="code">{x.case_code}</span>],
+          ['Landowner', x.landowner_name], ['Amount', rs(x.amount)], ['Allocated', when(x.allocated_at || x.created_at)],
+          ['By', x.allocated_by_name], ['Note', x.note, true]] }],
+      };
+      case 'hold': return {
+        title: <>Payment hold</>, icon: 'lock',
+        sections: [
+          { items: [['Status', x.lifted_at ? <span className="b b-g">Lifted</span> : <span className="b b-d">Active</span>], ['Scope', x.scope],
+            ['Court stay', x.legal_case_id ? 'Yes (lift it on the legal case)' : 'No'], ['Province', x.province_code],
+            ['Landowner', x.landowner_name], ['Case', x.case_code], ['Voucher', x.payment_code], ['Parcel', x.survey_code],
+            ['Project', x.project_code ? `${x.project_code} · ${x.project_name ?? ''}` : null], ['Reason', x.reason, true]] },
+          { title: 'History', items: [['Placed', when(x.placed_at)], ['Placed by', x.placed_by_name], ['Lifted', when(x.lifted_at)],
+            ['Lifted by', x.lifted_by_name], ['Reason for lifting', x.lift_reason, true]] },
+        ],
+        actions: !x.lifted_at && canHere(['verify', 'release'], x.province_code) && !x.legal_case_id
+          ? <button type="button" className="btn btn-s" onClick={() => open({ kind: 'lift', h: x })}>Lift</button> : undefined,
+      };
+      case 'run': return {
+        title: <>Reconciliation run <span className="mono">{String(x.id).slice(0, 8)}</span></>, icon: 'calc',
+        sections: [{ items: [['Scope', x.scope], ['Scope reference', x.scope_ref], ['Province', x.province_code], ['As of', fmtDate(x.as_of)],
+          ['Started', when(x.started_at)], ['Finished', when(x.finished_at)],
+          ['Exceptions', fmtNum(x.exception_count ?? exceptions.filter((e) => e.run_id === x.id).length)]] }],
+      };
+      case 'exception': return {
+        title: <>Reconciliation exception</>, icon: 'warn',
+        sections: [{ items: [
+          ['Severity', <span className={`b ${x.severity === 'error' ? 'b-d' : x.severity === 'warning' ? 'b-w' : 'b-i'}`}>{x.severity}</span>],
+          ['Finding', x.kind], ['Record', x.entity_code || x.entity], ['Record type', x.entity], ['Province', x.province_code], ['As of', fmtDate(x.as_of)],
+          ['Expected', x.expected != null ? fmtNum(x.expected) : null], ['Actual', x.actual != null ? fmtNum(x.actual) : null],
+          ['Difference', x.difference != null ? fmtNum(x.difference) : null], ['Resolved', when(x.resolved_at)], ['Resolution', x.resolution, true],
+          ['Detail', x.detail ? (typeof x.detail === 'string' ? x.detail
+            : <pre className="mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{JSON.stringify(x.detail, null, 2)}</pre>) : null, true]] }],
+      };
+    }
+  };
+  const viewing = dialog?.kind === 'view' ? viewOf(dialog.what, dialog.x) : null;
+
   const shownCount = tab === 'reconciliation' ? exceptions.length : (page?.total ?? 0);
 
   return (
@@ -266,7 +377,7 @@ function PaymentsContent() {
                 head={<><th>Voucher</th><th>Prov.</th><th>Payee</th><th>Category</th><th className="num">Gross</th><th className="num">WHT</th><th className="num">Net (Rs)</th><th>Stage</th><th>Actions</th></>}
                 empty={vouchers.length || error ? false : 'No vouchers.'} colSpan={9}>
                 {vouchers.map((v) => (
-                  <tr key={v.id}>
+                  <tr key={v.id} {...rowOpen(() => open({ kind: 'view', what: 'voucher', x: v }), `Show voucher ${v.code}`)}>
                     <td><span className="code">{v.code}</span><br /><small className="note">{v.project_code}{v.case_code ? ` · ${v.case_code}` : ''}</small></td>
                     <td><span className="pill">{v.province_code}</span></td>
                     <td>{v.payee || '—'}{v.cnic && <><br /><small className="note mono">{v.cnic} · {v.tax_status}</small></>}</td>
@@ -292,7 +403,7 @@ function PaymentsContent() {
                 head={<><th>Cheque</th><th>Voucher</th><th>Payee</th><th>Cheque date</th><th className="num">Amount (Rs)</th><th>Released</th><th className="num">Receipts</th><th>Actions</th></>}
                 empty={releases.length || error ? false : 'No cheques released.'} colSpan={8}>
                 {releases.map((r) => (
-                  <tr key={r.release_id}>
+                  <tr key={r.release_id} {...rowOpen(() => open({ kind: 'view', what: 'release', x: r }), `Show cheque ${r.cheque_no}`)}>
                     <td><span className="mono">{r.cheque_no}</span></td>
                     <td><span className="code">{r.voucher_code}</span></td>
                     <td>{r.payee}{r.cnic && <><br /><small className="note mono">{r.cnic}</small></>}</td>
@@ -318,7 +429,7 @@ function PaymentsContent() {
               <Table caption="Receipts" head={<><th>Receipt</th><th>Cheque</th><th>Voucher</th><th>Received</th><th>Acknowledged by</th><th>Remarks</th><th>Actions</th></>}
                 empty={receipts.length ? false : 'No receipts recorded.'} colSpan={7}>
                 {receipts.map((rc) => (
-                  <tr key={rc.id}><td className="mono">{rc.receipt_no}</td><td className="mono">{rc.cheque_no}</td><td><span className="code">{rc.voucher_code}</span></td>
+                  <tr key={rc.id} {...rowOpen(() => open({ kind: 'view', what: 'receipt', x: rc }), `Show receipt ${rc.receipt_no}`)}><td className="mono">{rc.receipt_no}</td><td className="mono">{rc.cheque_no}</td><td><span className="code">{rc.voucher_code}</span></td>
                     <td>{fmtDate(rc.received_date || rc.received_on)}</td><td>{rc.acknowledged_by}{(rc.received_by_cnic || rc.acknowledged_cnic) && <><br /><small className="note mono">{rc.received_by_cnic || rc.acknowledged_cnic}</small></>}</td>
                     <td>{rc.remarks || rc.note || '—'}</td>
                     <td><div className="acts"><button type="button" onClick={() => printReceipt(rc.id)} disabled={printing === rc.id}
@@ -332,7 +443,7 @@ function PaymentsContent() {
                   <th className="num">Outstanding (Rs)</th><th className="num">Days</th><th>Settlement</th><th>Actions</th></>}
                 empty={liabilities.length || error ? false : 'No outstanding liabilities.'} colSpan={10}>
                 {liabilities.map((l) => (
-                  <tr key={l.case_id}>
+                  <tr key={l.case_id} {...rowOpen(() => open({ kind: 'view', what: 'liability', x: l }), `Show liability of ${l.case_code}`)}>
                     <td><span className="code">{l.case_code}</span><br /><small className="note">{l.payees}</small></td>
                     <td><span className="pill">{l.province_code}</span></td>
                     <td>{l.project_name}</td>
@@ -350,7 +461,7 @@ function PaymentsContent() {
               <Table caption="Allocations" head={<><th>Voucher</th><th>Case</th><th>Landowner</th><th className="num">Amount (Rs)</th><th>By</th><th>Note</th></>}
                 empty={allocations.length ? false : 'No allocations.'} colSpan={6}>
                 {allocations.map((a) => (
-                  <tr key={a.id}><td><span className="code">{a.payment_code}</span></td><td><span className="code">{a.case_code}</span></td><td>{a.landowner_name || '—'}</td>
+                  <tr key={a.id} {...rowOpen(() => open({ kind: 'view', what: 'allocation', x: a }), `Show allocation of ${a.payment_code}`)}><td><span className="code">{a.payment_code}</span></td><td><span className="code">{a.case_code}</span></td><td>{a.landowner_name || '—'}</td>
                     <td className="num">{fmtNum(a.amount)}</td><td>{a.allocated_by_name || '—'}</td><td>{a.note || '—'}</td></tr>
                 ))}
               </Table>
@@ -360,7 +471,7 @@ function PaymentsContent() {
                 head={<><th>Scope</th><th>On</th><th>Reason</th><th>Placed</th><th>Lifted</th><th>Actions</th></>}
                 empty={holds.length || error ? false : 'No holds.'} colSpan={6}>
                 {holds.map((h) => (
-                  <tr key={h.id}>
+                  <tr key={h.id} {...rowOpen(() => open({ kind: 'view', what: 'hold', x: h }), 'Show hold details')}>
                     <td><span className="b b-n">{h.scope}</span>{h.legal_case_id && <><br /><span className="b b-d">Court stay</span></>}</td>
                     <td>{h.landowner_name || h.case_code || h.payment_code || h.survey_code || h.project_code || '—'}</td>
                     <td>{h.reason}</td>
@@ -376,7 +487,7 @@ function PaymentsContent() {
               <Table caption="Reconciliation runs" head={<><th>Run</th><th>Scope</th><th>As of</th><th>Started</th><th className="num">Exceptions</th></>}
                 empty={runs.length ? false : 'No reconciliation has been run.'} colSpan={5}>
                 {runs.map((r: any) => (
-                  <tr key={r.id}><td className="mono">{String(r.id).slice(0, 8)}</td><td>{r.scope}</td><td>{fmtDate(r.as_of)}</td>
+                  <tr key={r.id} {...rowOpen(() => open({ kind: 'view', what: 'run', x: r }), 'Show reconciliation run')}><td className="mono">{String(r.id).slice(0, 8)}</td><td>{r.scope}</td><td>{fmtDate(r.as_of)}</td>
                     <td>{r.started_at ? new Date(r.started_at).toLocaleString('en-GB') : '—'}</td><td className="num">{fmtNum(r.exception_count ?? exceptions.filter((e) => e.run_id === r.id).length)}</td></tr>
                 ))}
               </Table>
@@ -384,7 +495,7 @@ function PaymentsContent() {
               <Table caption="Reconciliation exceptions" head={<><th>Severity</th><th>Record</th><th>Finding</th><th className="num">Expected</th><th className="num">Actual</th></>}
                 empty={exceptions.length ? false : 'No exceptions.'} colSpan={5}>
                 {exceptions.map((x: any) => (
-                  <tr key={x.id}><td><span className={`b ${x.severity === 'error' ? 'b-d' : x.severity === 'warning' ? 'b-w' : 'b-i'}`}>{x.severity}</span></td>
+                  <tr key={x.id} {...rowOpen(() => open({ kind: 'view', what: 'exception', x }), 'Show exception')}><td><span className={`b ${x.severity === 'error' ? 'b-d' : x.severity === 'warning' ? 'b-w' : 'b-i'}`}>{x.severity}</span></td>
                     <td className="mono">{x.entity_code || x.entity || '—'}</td><td>{x.kind}{x.detail && <><br /><small className="note">{typeof x.detail === 'string' ? x.detail : JSON.stringify(x.detail)}</small></>}</td>
                     <td className="num">{x.expected != null ? fmtNum(x.expected) : '—'}</td><td className="num">{x.actual != null ? fmtNum(x.actual) : '—'}</td></tr>
                 ))}
@@ -394,6 +505,8 @@ function PaymentsContent() {
         )}
         {tab !== 'reconciliation' && <Pager page={page} onOffset={lq.setOffset} />}
       </Card>
+
+      {viewing && <DetailsModal open icon={viewing.icon} title={viewing.title} sections={viewing.sections} actions={viewing.actions} onClose={() => setDialog(null)} />}
 
       {/* request */}
       <Modal open={dialog?.kind === 'request'} icon="wallet" title="Request Payment" onClose={() => setDialog(null)}

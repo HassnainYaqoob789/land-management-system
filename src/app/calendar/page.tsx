@@ -6,7 +6,7 @@ import Shell, { useLMS } from '@/components/layout/Shell';
 import { useApi } from '@/lib/client/api';
 import { LoadError } from '@/components/auth/PageGuard';
 import { routePermission, useCan } from '@/lib/client/permissions';
-import { Card, Kpi, Stage, Table, Toolbar, SearchBox, Select, Count, Loading, fmtNum, fmtDate } from '@/components/legacy/ui';
+import { Card, Kpi, Stage, Table, Toolbar, SearchBox, Select, Count, Loading, fmtNum, fmtDate, rowOpen, DetailsModal } from '@/components/legacy/ui';
 
 interface CalendarEvent {
   id: string;
@@ -35,6 +35,7 @@ function CalendarContent() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [kindFilter, setKindFilter] = useState('');
   const [q, setQ] = useState('');
+  const [view, setView] = useState<CalendarEvent | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Dated events from the database (/api/calendar), within the user's provinces and registers.
@@ -92,7 +93,7 @@ function CalendarContent() {
             colSpan={7}
           >
             {shown.map((ev) => (
-              <tr key={ev.id}>
+              <tr key={ev.id} {...rowOpen(() => setView(ev), `Show ${ev.code}`)}>
                 <td className="u-nowrap"><b>{fmtDate(ev.date)}</b></td>
                 <td><span className="pill">{ev.kind}</span></td>
                 <td><span className="code">{ev.code}</span></td>
@@ -105,6 +106,19 @@ function CalendarContent() {
           </Table>
         )}
       </Card>
+      {view && (() => {
+        const days = Math.round((new Date(view.date).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86_400_000);
+        return (
+          <DetailsModal open icon="cal" onClose={() => setView(null)} title={<>{view.kind} <span className="code">{view.code}</span></>}
+            sections={[{ items: [
+              ['Date', fmtDate(view.date)],
+              ['When', Number.isNaN(days) ? null : days === 0 ? 'Today' : days > 0 ? `In ${fmtNum(days)} day(s)` : `${fmtNum(-days)} day(s) ago`],
+              ['Type', view.kind], ['Record', <span className="code">{view.code}</span>], ['Province', view.province_code],
+              ['Status', <Stage value={view.status} />], ['Description', view.title, true],
+            ] }]}
+            actions={view.href && to(view.href) ? <Link className="btn btn-s" href={view.href}>Open record</Link> : undefined} />
+        );
+      })()}
     </>
   );
 }

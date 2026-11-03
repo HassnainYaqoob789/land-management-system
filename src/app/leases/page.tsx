@@ -7,7 +7,7 @@ import { send, useApi, useReference, stagesOf } from '@/lib/client/api';
 import { useCan, useCanIn } from '@/lib/client/permissions';
 import { printDocument, escapeHtml } from '@/lib/client/print';
 import { LoadError } from '@/components/auth/PageGuard';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, ErrorNote, Kpi, fmtNum, fmtDate, Pager } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Loading, ErrorNote, Kpi, fmtNum, fmtDate, Pager, rowOpen } from '@/components/legacy/ui';
 import { formatPKR } from '@/lib/domain';
 
 const COMPANY = 'Mari Energies Limited';
@@ -281,7 +281,7 @@ function LeasesContent() {
               const isHold = l.is_on_hold || l.lease_status === 'On Hold';
               const canUpd = canUpdateIn(l.province_code);
               return (
-                <tr key={l.lease_id}>
+                <tr key={l.lease_id} {...rowOpen(() => setDetailLease(l), `Show details of ${l.lease_code}`)}>
                   <td><span className="code">{l.lease_code}</span>{l.renewal_count > 0 && <><br /><small className="note">renewed {l.renewal_count}×</small></>}</td>
                   <td><span className="pill">{l.province_code}</span></td>
                   <td>{l.project_name}</td>

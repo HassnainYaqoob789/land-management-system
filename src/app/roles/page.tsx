@@ -9,7 +9,7 @@
 
 import React, { useCallback, useState } from 'react';
 import Shell from '@/components/layout/Shell';
-import { Card, Table, Toolbar, SearchBox, Count, Tabs, Loading, ErrorNote, Kpi, Select, fmtNum } from '@/components/legacy/ui';
+import { Card, Table, Toolbar, SearchBox, Count, Tabs, Loading, ErrorNote, Kpi, Select, fmtNum, rowOpen } from '@/components/legacy/ui';
 import { useApi } from '@/lib/client/api';
 import RoleForm from '@/components/roles/RoleForm';
 import PermissionEditor from '@/components/roles/PermissionEditor';
@@ -71,7 +71,7 @@ function RolesContent() {
                 const editable = !r.is_system && r.status !== 'retired';
                 const targets = statusTargets(r.status, r.is_system).filter((s) => (s === 'retired' ? can?.delete : can?.update));
                 return (
-                  <tr key={r.id}>
+                  <tr key={r.id} {...rowOpen(() => openView(r.code), `Show role ${r.code}`)}>
                     <td><b>{r.name}</b><br /><small className="note mono">{r.code}</small>{r.description && <><br /><small className="note">{r.description}</small></>}</td>
                     <td>{r.tier_name ?? r.db_role_code}</td>
                     <td>{statusBadge(r.status)}{r.status_reason && r.status !== 'active' && <><br /><small className="note">{r.status_reason}</small></>}</td>

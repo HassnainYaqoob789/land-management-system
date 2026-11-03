@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Shell from '@/components/layout/Shell';
-import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Tabs, Loading, ErrorNote, Kpi, fmtNum } from '@/components/legacy/ui';
+import { Card, Modal, Field, Stage, Table, Toolbar, SearchBox, Count, Tabs, Loading, ErrorNote, Kpi, fmtNum, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { useList } from '@/components/legacy/data';
 import { LoadError } from '@/components/auth/PageGuard';
 import { send } from '@/lib/client/api';
@@ -52,6 +52,7 @@ function InboxContent() {
   const chooseTab = (t: typeof tab) => { setTabChosen(true); setTab(t); };
   const [q, setQ] = useState('');
   const [commentOn, setCommentOn] = useState<any | null>(null);
+  const [view, setView] = useState<any | null>(null);
   const [text, setText] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -104,7 +105,7 @@ function InboxContent() {
               head={<><th>Record</th><th>Workflow</th><th>Waiting for</th><th>Position</th><th>Summary</th><th className="num">Days</th><th>Actions</th></>}
               empty={rows.length ? false : tab === 'mine' ? 'Nothing is waiting on you.' : 'No open approvals.'} colSpan={7}>
               {rows.map((a) => (
-                <tr key={a.id}>
+                <tr key={a.id} {...rowOpen(() => setView(a), `Show ${a.record_code}`)}>
                   <td><span className="code">{a.record_code}</span>{a.province_code && <><br /><span className="pill">{a.province_code}</span></>}</td>
                   <td>{LABEL[a.workflow_code] ?? a.workflow_code}</td>
                   <td><Stage value={a.stage_code} /></td>
@@ -164,6 +165,24 @@ function InboxContent() {
           )}
         </>)}
       </Card>
+
+      {view && (
+        <DetailsModal open icon="send" onClose={() => setView(null)}
+          title={<>{LABEL[view.workflow_code] ?? view.workflow_code} <span className="code">{view.record_code}</span></>}
+          sections={[{ items: [
+            ['Record', <span className="code">{view.record_code}</span>], ['Workflow', LABEL[view.workflow_code] ?? view.workflow_code],
+            ['Province', view.province_code], ['Waiting for', <Stage value={view.stage_code} />],
+            ['Position', view.assigned_group], ['Assigned to', view.assigned_user_name],
+            ['Waiting since', view.assigned_at ? new Date(view.assigned_at).toLocaleString('en-GB') : null],
+            ['Days waiting', view.days_waiting != null ? fmtNum(view.days_waiting) : null],
+            ['Summary', view.summary, true],
+          ] }]}
+          actions={<>
+            {openLink(view) && <Link className="btn btn-s" href={openLink(view)!}>Open record</Link>}
+            {!isLandRequest(view) && can(commentNeed(view.workflow_code), 'any') &&
+              <button type="button" className="btn btn-s" onClick={() => { setFormError(null); setText(''); setCommentOn(view); setView(null); }}>Comment</button>}
+          </>} />
+      )}
 
       <Modal open={!!commentOn} size="sm" icon="send" title={`Comment on ${commentOn?.record_code ?? ''}`} onClose={() => setCommentOn(null)}
         footer={<>

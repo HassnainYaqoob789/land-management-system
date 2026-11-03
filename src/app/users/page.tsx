@@ -10,7 +10,7 @@
 import React, { useCallback, useState } from 'react';
 import Link from 'next/link';
 import Shell, { useLMS } from '@/components/layout/Shell';
-import { Card, Modal, Field, Table, Toolbar, SearchBox, Count, Tabs, Loading, ErrorNote, Kpi, fmtNum } from '@/components/legacy/ui';
+import { Card, Modal, Field, Table, Toolbar, SearchBox, Count, Tabs, Loading, ErrorNote, Kpi, fmtNum, rowOpen, DetailsModal } from '@/components/legacy/ui';
 import { RefSelect } from '@/components/legacy/data';
 import { send, useApi, useReference } from '@/lib/client/api';
 import { useCan } from '@/lib/client/permissions';
@@ -22,7 +22,7 @@ export default function UsersPage() {
   return <Shell><UsersContent /></Shell>;
 }
 
-type Dialog = null | { kind: 'create' } | { kind: 'bulk' } | { kind: 'edit' | 'status' | 'mfa' | 'access'; u: any }
+type Dialog = null | { kind: 'create' } | { kind: 'bulk' } | { kind: 'edit' | 'status' | 'mfa' | 'access' | 'view'; u: any }
   | { kind: 'shown'; title: string; url: string; expires?: string };
 const multi = (e: React.ChangeEvent<HTMLSelectElement>) => [...e.target.selectedOptions].map((o) => o.value);
 const sameSet = (a: string[], b: string[]) => {
@@ -70,6 +70,9 @@ function UsersContent() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
+  // Read-only details of a session or role row (Sessions / Roles tabs).
+  const [sessView, setSessView] = useState<any | null>(null);
+  const [roleView, setRoleView] = useState<any | null>(null);
   const close = useCallback(() => setDialog(null), []);
   const open = (d: Dialog, init: any = {}) => { setFormError(null); setNotice(null); setForm(init); setDialog(d); };
   const post = async (body: any, then?: (r: any) => void) => {
@@ -127,7 +130,7 @@ function UsersContent() {
                 const self = x.id === currentUser?.id;
                 const hasSessions = !canSessions || sessions.some((s) => s.user_id === x.id);
                 return (
-                  <tr key={x.id}>
+                  <tr key={x.id} {...rowOpen(() => open({ kind: 'view', u: x }), `Show details of ${x.username}`)}>
                     {canBulk && <td><input type="checkbox" aria-label={`Select ${x.username}`} disabled={self || x.status === 'Deactivated'}
                       title={self ? 'You cannot change your own roles' : undefined}
                       checked={picked.includes(x.id)} onChange={(e) => togglePick(x.id, e.target.checked)} /></td>}
@@ -160,7 +163,7 @@ function UsersContent() {
             <Table caption="Active sessions" head={<><th>User</th><th>Started</th><th>Last seen</th><th>Expires</th><th>Method</th><th>From</th></>}
               empty={sessions.length ? false : 'No active sessions.'} colSpan={6}>
               {sessions.map((s) => (
-                <tr key={s.id}><td>{s.full_name || '—'}<br /><small className="note mono">{s.username}</small></td>
+                <tr key={s.id} {...rowOpen(() => setSessView(s), `Show session of ${s.username}`)}><td>{s.full_name || '—'}<br /><small className="note mono">{s.username}</small></td>
                   <td>{new Date(s.started_at).toLocaleString('en-GB')}</td><td>{new Date(s.last_seen_at).toLocaleString('en-GB')}</td>
                   <td>{new Date(s.expires_at).toLocaleString('en-GB')}</td><td>{s.auth_method ?? '—'}</td><td className="mono">{s.source_ip || '—'}</td></tr>
               ))}
@@ -170,7 +173,7 @@ function UsersContent() {
             <p className="note u-mb-10">Roles are defined and their permissions set on {allowed('roles:read') ? <Link href="/roles">Roles &amp; permissions</Link> : 'the Roles & permissions screen'}.</p>
             <Table caption="Roles" head={<><th>Role</th><th>Database tier</th><th>Status</th><th>Permissions</th></>} empty={roles.length ? false : 'No roles.'} colSpan={4}>
               {roles.map((r) => (
-                <tr key={r.id}><td><b>{r.name}</b><br /><small className="note mono">{r.code}</small>{r.description && <><br /><small className="note">{r.description}</small></>}</td>
+                <tr key={r.id} {...rowOpen(() => setRoleView(r), `Show role ${r.code}`)}><td><b>{r.name}</b><br /><small className="note mono">{r.code}</small>{r.description && <><br /><small className="note">{r.description}</small></>}</td>
                   <td>{r.db_role_code}</td>
                   <td><span className={`b ${r.status === 'active' ? 'b-g' : r.status === 'inactive' ? 'b-w' : 'b-n'}`}>{r.status === 'inactive' ? 'Suspended' : r.status}</span></td>
                   <td>{(r.permissions ?? []).length} permission(s)</td></tr>
@@ -179,6 +182,89 @@ function UsersContent() {
           </>)}
         </>)}
       </Card>
+
+      {dialog?.kind === 'view' && (() => {
+        const v = dialog.u;
+        const locked = v.locked_until && new Date(v.locked_until) > new Date();
+        const self = v.id === currentUser?.id;
+        const mySessions = sessions.filter((s) => s.user_id === v.id);
+        const myIds = identities.filter((i) => i.user_id === v.id);
+        const when = (t?: string | null) => (t ? new Date(t).toLocaleString('en-GB') : null);
+        return (
+          <DetailsModal open icon="user" onClose={close}
+            title={<>{v.full_name} <span className="code">{v.code}</span></>}
+            sections={[
+              { title: 'Account', items: [
+                ['Username', <span className="mono">{v.username}</span>],
+                ['Full name', v.full_name],
+                ['Email', v.email],
+                ['Status', <><span className={`b ${v.status === 'Active' ? 'b-g' : 'b-d'}`}>{v.status}</span>
+                  {locked && <> <span className="b b-w">Locked until {when(v.locked_until)}</span></>}
+                  {v.must_change_password && <> <span className="b b-i">Must change password</span></>}
+                  {v.is_break_glass && <> <span className="b b-w">Emergency access</span></>}</>],
+                ['Database tier', v.role_code],
+                ['Created', when(v.created_at)],
+              ] },
+              { title: 'Work', items: [
+                ['Position', v.position],
+                ['Department', v.department],
+                ['Office', v.office_code],
+                ['Provinces', (v.provinces ?? []).join(', ')],
+                ['Approval positions', (v.groups ?? []).length ? (v.groups ?? []).map((g: string) => <span key={g} className="pill">{g}</span>) : null, true],
+              ] },
+              { title: 'Access', items: [
+                ['Roles', <RoleGrants grants={assignments.filter((a) => a.user_id === v.id)} fallback={v.iam_roles ?? []} />, true],
+                ['Two-step verification', v.mfa_enrolled
+                  ? [v.mfa_totp && 'Authenticator app', v.passkeys ? `${v.passkeys} passkey(s)` : null].filter(Boolean).join(' + ')
+                  : 'Not enrolled'],
+                myIds.length > 0 && ['Directory sign-in', myIds.map((i) => `${i.provider} (${i.kind})`).join(', ')],
+              ] },
+              { title: 'Activity', items: [
+                ['Last sign-in', when(v.last_login_at) ?? 'never'],
+                canSessions && ['Active sessions', mySessions.length
+                  ? mySessions.map((s) => <React.Fragment key={s.id}>{when(s.last_seen_at)} · {s.auth_method ?? '—'} · <span className="mono">{s.source_ip || '—'}</span><br /></React.Fragment>)
+                  : 'none', true],
+              ] },
+            ]}
+            actions={<>
+              <button type="button" className="btn btn-s" onClick={() => open({ kind: 'access', u: v })}>Access</button>
+              {can('update') && v.status !== 'Deactivated' && <button type="button" className="btn btn-s" onClick={() => open({ kind: 'edit', u: v }, { full_name: v.full_name, email: v.email ?? '', department: v.department ?? '', position: v.position ?? '', office_code: v.office_code ?? '', provinces: v.provinces ?? [], groups: v.groups ?? [] })}>Edit</button>}
+              {can('update') && !self && <button type="button" className="btn btn-s" onClick={() => open({ kind: 'status', u: v }, { status: v.status, reason: '' })}>Status</button>}
+            </>} />
+        );
+      })()}
+
+      {sessView && (() => {
+        const owner = users.find((x) => x.id === sessView.user_id);
+        return (
+          <DetailsModal open icon="lock" onClose={() => setSessView(null)}
+            title={<>Session · {sessView.full_name || sessView.username}</>}
+            sections={[{ items: [
+              ['User', sessView.full_name], ['Username', <span className="mono">{sessView.username}</span>],
+              ['Started', new Date(sessView.started_at).toLocaleString('en-GB')], ['Last seen', new Date(sessView.last_seen_at).toLocaleString('en-GB')],
+              ['Expires', new Date(sessView.expires_at).toLocaleString('en-GB')], ['Sign-in method', sessView.auth_method],
+              ['From (IP)', sessView.source_ip && <span className="mono">{sessView.source_ip}</span>],
+            ] }]}
+            actions={owner ? <button type="button" className="btn btn-s" onClick={() => { setSessView(null); open({ kind: 'view', u: owner }); }}>Show user</button> : undefined} />
+        );
+      })()}
+      {roleView && (() => {
+        const perms: string[] = roleView.permissions ?? [];
+        const byResource = perms.reduce<Record<string, string[]>>((m, p) => { const [res, act] = p.split(':'); (m[res] ??= []).push(act); return m; }, {});
+        const members = users.filter((x) => (x.iam_roles ?? []).includes(roleView.code));
+        return (
+          <DetailsModal open icon="shield" onClose={() => setRoleView(null)}
+            title={<>{roleView.name} <span className="code">{roleView.code}</span></>}
+            sections={[
+              { items: [['Code', <span className="mono">{roleView.code}</span>], ['Name', roleView.name], ['Database tier', roleView.db_role_code],
+                ['Status', <span className={`b ${roleView.status === 'active' ? 'b-g' : roleView.status === 'inactive' ? 'b-w' : 'b-n'}`}>{roleView.status === 'inactive' ? 'Suspended' : roleView.status}</span>],
+                ['Type', roleView.is_system ? 'System (defined by migration)' : 'Custom'], ['Description', roleView.description, true]] },
+              { title: `Members (${members.length})`, items: [['Members', members.map((x) => <span key={x.id} className="pill">{x.full_name} · {x.username}</span>), true]] },
+              { title: `Permissions (${perms.length})`, items: Object.entries(byResource).map(([res, acts]) => [res, acts.join(', ')] as const) },
+            ]}
+            actions={allowed('roles:read') ? <Link className="btn btn-s" href="/roles">Roles &amp; permissions</Link> : undefined} />
+        );
+      })()}
 
       <Modal open={dialog?.kind === 'create'} icon="user" title="Add User" onClose={close} footer={footer('ucForm', 'Create and get invitation link')}>
         <form id="ucForm" className="fgrid" onSubmit={(e) => { e.preventDefault(); post({ action: 'create_user', ...form },
