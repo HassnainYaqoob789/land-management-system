@@ -3,6 +3,7 @@
 | # | Deliverable | File | Use it for |
 |---|---|---|---|
 | 1 | Complete Project User Manual | [01_COMPLETE_USER_MANUAL.md](01_COMPLETE_USER_MANUAL.md) | Full reference: every module, role, workflow, rule, limitation and the glossary |
+| 1b | **Client User Manual (current, v2.0 — 3 Nov 2026, DB 0062)** | [Client User Manual/](Client%20User%20Manual/) — `.md`, `.docx`, `.pdf` | **The up-to-date manual to share with the client.** Refreshes #1 for the latest build (clickable row details, "Waiting on" workflow buttons, land-request completion, per-province land units, mutation re-pointing, voucher cancel, temporary access). |
 | 2 | Key Features User Manual | [02_KEY_FEATURES_USER_MANUAL.md](02_KEY_FEATURES_USER_MANUAL.md) | Presentations: Projects → Khasras → GIS → Explorer → Land Requirement approvals → Acquisition → Case → Payment → Reports |
 | 3 | Key Features Demo Video Script | [03_KEY_FEATURES_DEMO_VIDEO_SCRIPT.md](03_KEY_FEATURES_DEMO_VIDEO_SCRIPT.md) | Recording: on-screen actions, voiceover and expected result for each scene |
 | 3b | AI Voice Sync Script | [03b_AI_VOICE_SYNC_SCRIPT.md](03b_AI_VOICE_SYNC_SCRIPT.md) | Recording with an AI voice: 38 short clips, the voice reads each form value as you enter it, a pause-tagged text file per clip in `export/AI voice segments/` |
@@ -31,5 +32,9 @@ Word (.docx) and PDF copies of every deliverable. They open on any computer, wit
 | 3b | `03b LMS AI Voice Sync Script.docx` | `03b LMS AI Voice Sync Script.pdf` |
 | 4 | — | `04 LMS Architecture and Workflow Diagram.pdf` (one long page) and `.png` |
 | 5 | `05 LMS Demo Recording Data and Test Scenarios.docx` | `05 LMS Demo Recording Data and Test Scenarios.pdf` (15 pages) |
+| 8 | `Demo presenter pack/08 LMS Module Workflow Quick Reference.docx` | `Demo presenter pack/08 LMS Module Workflow Quick Reference.pdf` (every module: steps, approval chain, links, refusals) |
+| 9 | `Demo presenter pack/09 LMS Demo Data Sheet (fresh set).docx` | `Demo presenter pack/09 LMS Demo Data Sheet (fresh set).pdf` (copy-paste data in the 08 order; rehearsed 76/76) |
+
+| 10 | `Data flow diagrams/10 LMS Data Flow Diagrams.docx` | `Data flow diagrams/10 LMS Data Flow Diagrams.pdf` + `images/*.png` (Level 0, Level 1, six Level 2 flows) |
 
 The Word and PDF files are generated from the `.md` sources above. If a source changes, regenerate them rather than editing the exports by hand.
