@@ -63,7 +63,7 @@ const SEES = {
   viewer: 'Read-only dashboards and registers',
   'exploration-planner': 'Draws the land it needs on the GIS map and raises land requests; no landowner data or approvals',
   'land-request-reviewer': 'Decides its tier of land requests (Director Operations / Regional Manager) on the map',
-  'demo-director': 'Every tab, read-only (opening walkthrough); changes nothing, CNICs masked',
+  'demo-director': 'Every tab, every action except payment release; one approval step per record',
 };
 const users = sql(`SELECT u.username, u.full_name, coalesce(u.position,''),
                           coalesce((SELECT string_agg(r.code, ',' ORDER BY r.code) FROM iam.user_role ur JOIN iam.role r ON r.id = ur.role_id

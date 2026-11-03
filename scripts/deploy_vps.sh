@@ -57,12 +57,17 @@ if grep -qs '^LMS_DEMO_MODE=on' .env.production.local && [ -f "$DEMO_FILE" ]; th
       const fs=require("fs"),f=process.argv[1],j=JSON.parse(fs.readFileSync(f,"utf8"));
       j.accounts=j.accounts.filter(a=>a.username!=="director");
       j.accounts.unshift({username:"director",password:process.env.DPW,fullName:"Asif Rehman",position:"Director (demo, all tabs)",
-        roles:["demo-director"],provinces:["BAL","KPK","PNJ","SND"],sees:"Every tab, read-only"});
+        roles:["demo-director"],provinces:["BAL","KPK","PNJ","SND"],sees:"Every tab, every action except payment release"});
       fs.writeFileSync(f,JSON.stringify(j,null,2));' "$DEMO_FILE"
     unset DPW
     echo "director added to the demo sign-in list"
   else
-    echo "director already in the demo list"
+    # keep the password, refresh the label shown on the sign-in list
+    node -e '
+      const fs=require("fs"),f=process.argv[1],j=JSON.parse(fs.readFileSync(f,"utf8"));
+      for (const a of j.accounts) if (a.username==="director") a.sees="Every tab, every action except payment release";
+      fs.writeFileSync(f,JSON.stringify(j,null,2));' "$DEMO_FILE"
+    echo "director already in the demo list (label refreshed)"
   fi
 else
   echo "demo mode off: skipped"
